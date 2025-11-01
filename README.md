@@ -16,12 +16,12 @@
 - **持仓管理**：实时监控持仓状态和盈亏
 - **风险控制**：多层风险保护机制
 
-### 📊 数据可视化
+###  数据可视化
 - **实时图表**：账户余额、收益率等关键指标
 - **交易历史**：完整的交易记录和 AI 决策日志
 - **性能分析**：胜率、平均盈亏、最大回撤等统计
 
-### 🛡️ 安全特性
+###  安全特性
 - **模拟交易**：支持虚拟盘测试（demo-fapi.binance.com）
 - **实盘模式**：可切换到真实交易
 - **API 密钥加密**：敏感信息环境变量管理
@@ -29,7 +29,7 @@
 
 ---
 
-## 📋 系统要求
+##  系统要求
 
 在开始之前，请确保你的系统满足以下要求：
 
@@ -49,7 +49,7 @@
 
 ---
 
-## 🚀 完整安装指南
+##  完整安装指南
 
 ### 第 1 步：安装 Node.js
 
@@ -152,7 +152,7 @@ psql --version
 2. **创建数据库和用户**
    ```sql
    -- 创建数据库
-   CREATE DATABASE trading_db;
+   CREATE DATABASE nof1;
 
    -- 创建用户（可选，建议使用）
    CREATE USER trading_user WITH PASSWORD 'your_secure_password';
@@ -165,7 +165,7 @@ psql --version
    ```
 
 3. **记录数据库连接信息**
-   - 数据库名：`trading_db`
+   - 数据库名：`nof1`
    - 用户名：`trading_user`（或 `postgres`）
    - 密码：你设置的密码
    - 主机：`localhost`
@@ -205,7 +205,7 @@ psql --version
 4. 创建新的 API Key
 5. 保存 API Key
 （最好使用deepseek,openrouter可以不配置）
-#### 方案 B：OpenRouter
+#### 方案 B：OpenRouter(一般不用)
 
 1. 访问 [OpenRouter](https://openrouter.ai/)
 2. 注册账号并登录
