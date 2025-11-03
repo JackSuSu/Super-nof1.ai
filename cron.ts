@@ -32,7 +32,17 @@ cron.schedule("*/30 * * * * *", async () => {
   await runMetricsInterval();
 });
 
+// 🔒 添加锁机制，防止并发执行
+let isRunningChat = false;
+
 const runChatInterval = async () => {
+  // 如果已经在运行中，跳过本次执行
+  if (isRunningChat) {
+    console.log("⏭️ Trading analysis already running, skipping...");
+    return;
+  }
+
+  isRunningChat = true;
   console.log("🤖 Trading analysis starting...");
   const token = jwt.sign(
     {
@@ -59,6 +69,9 @@ const runChatInterval = async () => {
     }
   } catch (error) {
     console.error("[cron:chat] Error:", error);
+  } finally {
+    // 无论成功还是失败，都要释放锁
+    isRunningChat = false;
   }
 };
 
