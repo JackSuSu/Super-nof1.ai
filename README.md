@@ -19,7 +19,6 @@ Copy the five files "lib\ai\run.ts", "prisma\schma.prisma", "component\models_vi
 - Update the database by executing the command line:
 ```
 npx prisma db push
-11.3
 npx prisma generate
 ```
 Then run `npm run dev` to use it.
