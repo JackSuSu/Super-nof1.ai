@@ -1,3 +1,4 @@
+import "@/lib/utils/logger";
 import { generateObject } from "ai";
 import { generateUserPrompt, getTradingPrompt } from "./prompt";
 import { getCurrentMarketState } from "../trading/current-market-state";

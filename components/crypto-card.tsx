@@ -53,12 +53,12 @@ export function CryptoCard({ symbol, name, price, change }: CryptoCardProps) {
   return (
     <Card className={`group relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br ${gradient} ${glow}`}>
       {/* Animated glow effect */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute top-0 right-0 w-24 h-20 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="relative p-5 space-y-3">
+      <div className="relative p-1 pl-5 space-y-1">
         <div className="flex items-center gap-3">
           {Icon && (
-            <div className={`p-2.5 rounded-xl bg-gradient-to-br ${iconColor.replace('text-', 'from-')}/20 to-background border border-${iconColor.replace('text-', '')}/20`}>
+            <div className={`p-1 rounded-xl bg-gradient-to-br ${iconColor.replace('text-', 'from-')}/20 to-background border border-${iconColor.replace('text-', '')}/20`}>
               <Icon className={`text-2xl ${iconColor} drop-shadow-lg`} />
             </div>
           )}

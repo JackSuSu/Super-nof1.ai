@@ -1,3 +1,4 @@
+import "@/lib/utils/logger";
 import { getBinanceInstance, ensureTimeSync } from "./binance-official";
 import { fetchPositions } from "./positions";
 

@@ -427,7 +427,7 @@ export function MetricsChart({
 
         {/* 精美的统计指标面板 */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6 pt-6 border-t border-border/50">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3  pt-6 border-t border-border/50">
             <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500/10 via-background to-background p-4 hover:shadow-lg transition-all duration-300 border border-blue-500/20">
               <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-colors" />
               <div className="relative space-y-2">

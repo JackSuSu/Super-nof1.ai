@@ -3,7 +3,7 @@
  * 使用 @binance/futures-connector 替代 CCXT
  * 优势：更好的代理支持，专为币安API设计
  */
-
+import "@/lib/utils/logger";
 import { UMFutures } from '@binance/futures-connector';
 import tunnel from 'tunnel';
 import { ProxyAgent } from 'undici';
@@ -258,9 +258,57 @@ export type BinanceClient = UMFutures;
  * 导出的同步函数 - 在每次交易前调用
  */
 export async function ensureTimeSync(): Promise<void> {
-    const client = await getBinanceInstance();
+    const client = await getBinanceInstance();    
     await syncServerTime(client);
 }
+
+
+// export async function ensureTimeSync(): Promise<void> {
+//     try {
+//         const client = await getBinanceInstance();
+        
+//         // 方法1: 使用 time() 方法获取服务器时间
+//         let serverTime: number;
+//         try {
+//             // 尝试调用 time() 方法
+//             const timeResponse = await (client as any).time();
+//             serverTime = timeResponse.serverTime;
+//         } catch (e) {
+//             // 方法2: 备用方案 - 直接调用REST API
+//             console.log('🕐 Using fallback time sync method...');
+//             const tradingMode = process.env.TRADING_MODE || "dry-run";
+//             const isDryRun = tradingMode === "dry-run";
+//             const baseUrl = getBinanceBaseUrl().replace(/\/$/, '');
+            
+//             const timeUrl = `${baseUrl}/fapi/v1/time`;
+//             const response = await fetch(timeUrl);
+//             const data = await response.json();
+//             serverTime = data.serverTime;
+//         }
+
+//         const localTime = Date.now();
+//         const timeDiff = localTime - serverTime;
+        
+//         console.log(`⏰ Time sync - Local: ${new Date(localTime).toISOString()}, Diff: ${timeDiff}ms`);
+        
+//         // 如果时间差超过安全阈值，进行处理
+//         if (Math.abs(timeDiff) > 500) {
+//             console.warn(`⚠️ Time difference ${timeDiff}ms exceeds safe threshold`);
+            
+//             // 对于本地时间过快的情况，添加延迟
+//             if (timeDiff > 0) {
+//                 const delayTime = Math.min(timeDiff, 1000);
+//                 console.log(`⏳ Delaying request by ${delayTime}ms to sync with server time`);
+//                 await new Promise(resolve => setTimeout(resolve, delayTime));
+//             }
+//         } else {
+//             console.log(`✅ Time sync within safe range: ${timeDiff}ms`);
+//         }
+        
+//     } catch (error: any) {
+//         console.warn('⚠️ Time sync failed, proceeding with local time:', error.message);
+//     }
+// }
 
 /**
  * 获取调整后的时间戳

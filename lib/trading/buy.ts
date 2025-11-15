@@ -1,3 +1,4 @@
+import "@/lib/utils/logger";
 import { getBinanceInstance, ensureTimeSync, getBinanceBaseUrl } from "./binance-official";
 import { setStopLossTakeProfit } from "./stop-loss-take-profit-official";
 import crypto from 'crypto';
@@ -92,7 +93,7 @@ export interface BuyResult {
  * 注意:测试网精度可能与实盘不同
  */
 const SYMBOL_PRECISION: Record<string, { quantity: number; price: number; minNotional: number }> = {
-    "BTCUSDT": { quantity: 3, price: 1, minNotional: 5 },   // 0.001 BTC, 最�?5
+    "BTCUSDT": { quantity: 3, price: 1, minNotional: 100 },   // 0.001 BTC, 最�?5
     "ETHUSDT": { quantity: 2, price: 2, minNotional: 5 },   // 0.01 ETH, 最�?5
     "BNBUSDT": { quantity: 1, price: 2, minNotional: 5 },   // 0.1 BNB, 最�?5
     "SOLUSDT": { quantity: 0, price: 3, minNotional: 5 },   // 1 SOL (整数), 最�?5 - 测试网精�?

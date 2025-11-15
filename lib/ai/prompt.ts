@@ -117,7 +117,7 @@ POSITION SIZING FORMULA (for Buy orders):
 - Stop distance = stopLossPercent / 100
 
 - Leverage: 6/10→8-10x; 7/10→12-15x; 8/10→15-18x; 9/10→20-25x; MAX 30x
-- Stop loss: ATR-based (1.5-2.5×ATR) or structure-based; BTC/ETH 2-4%, DOGE 5-8%
+- Stop loss: ATR-based (1.5-2.5×ATR) or structure-based; BTC/ETH 5-8%, DOGE 8-12%
 - Take profit: tiered (first 5-8%, second 12-15%); minimum R:R 2:1
 
 EXAMPLE:

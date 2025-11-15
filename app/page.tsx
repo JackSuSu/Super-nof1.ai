@@ -100,61 +100,13 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
-      <div className="relative max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
+      <div className="relative max-w-[1600px] mx-auto p-4 md:p-8 space-y-4">
         {/* Premium Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent">
-                    Super Nof1.ai
-                  </h1>
-                  <p className="text-xs text-muted-foreground/80 font-medium mt-0.5">
-                    Powered by AI • Inspired by Alpha Arena
-                  </p>
-                </div>
-              </div>
-
-              {/* Virtual Trading Badge */}
-              {process.env.NEXT_PUBLIC_TRADING_MODE === 'dry-run' && (
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl blur-md opacity-75 group-hover:opacity-100 transition" />
-                  <span className="relative inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z" />
-                    </svg>
-                    Virtual Mode
-                  </span>
-                </div>
-              )}
-            </div>
-            <p className="text-muted-foreground/90 text-sm flex items-center gap-2 ml-1">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-              </span>
-              Real-time AI trading metrics and performance analytics
-            </p>
-          </div>
-          {lastUpdate && (
-            <div className="text-right space-y-1.5">
-              <div className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">Last Sync</div>
-              <div className="text-xl font-black font-mono bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                {lastUpdate}
-              </div>
-            </div>
-          )}
-        </div>
+        
 
         {/* Premium Navigation */}
         <div className="flex gap-6 border-b border-border/50">
-          <button className="group relative pb-3 px-2">
+          <button className="group relative pb-2 px-2">
             <span className="text-sm font-bold tracking-wide bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               LIVE
             </span>
@@ -163,7 +115,7 @@ export default function Home() {
         </div>
 
         {/* Premium Crypto Ticker */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           {pricing ? (
             <>
               <CryptoCard
@@ -205,6 +157,26 @@ export default function Home() {
               </div>
             ))
           )}
+
+          {lastUpdate && (
+            <div className="text-right space-y-1.5">
+              <div className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wider">Last Sync</div>
+              <div className="text-xl font-black font-mono bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                {lastUpdate}
+              </div>
+
+              {process.env.NEXT_PUBLIC_TRADING_MODE === 'dry-run' && (
+                <div className="relative group">
+                 
+                  <span className="relative inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg">
+                  
+                    Virtual Mode
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
 
         {/* Main Content - Chart and Models Side by Side */}
