@@ -21,27 +21,93 @@ export interface SellResult {
  * Binance Futures 合约的精度配置
  */
 const SYMBOL_PRECISION: Record<string, { quantity: number; price: number; minNotional: number }> = {
-    "BTCUSDT": { quantity: 3, price: 1, minNotional: 5 },   // 0.001 BTC, 最小$5
-    "ETHUSDT": { quantity: 2, price: 2, minNotional: 5 },   // 0.01 ETH, 最小$5
-    "BNBUSDT": { quantity: 1, price: 2, minNotional: 5 },   // 0.1 BNB, 最小$5
-    "SOLUSDT": { quantity: 1, price: 3, minNotional: 5 },   // 0.1 SOL, 最小$5
-    "ADAUSDT": { quantity: 0, price: 4, minNotional: 5 },   // 1 ADA, 最小$5
-    "DOGEUSDT": { quantity: 0, price: 5, minNotional: 5 },  // 1 DOGE, 最小$5 🐕
+    "BTCUSDT": { quantity: 3, price: 1, minNotional: 100 },   // 0.001 BTC, 最小$100
+    "ETHUSDT": { quantity: 2, price: 2, minNotional: 100 },   // 0.01 ETH, 最小$100
+    "BNBUSDT": { quantity: 1, price: 2, minNotional: 100 },   // 0.1 BNB, 最小$100
+    "SOLUSDT": { quantity: 2, price: 3, minNotional: 100 },   // 0.01 SOL, 最小$100
+    "ADAUSDT": { quantity: 0, price: 4, minNotional: 100 },   // 1 ADA, 最小$100
+    "DOGEUSDT": { quantity: 0, price: 5, minNotional: 100 },  // 1 DOGE, 最小$100
 };
 
 /**
  * 调整数量精度
  */
 function adjustPrecision(amount: number, symbol: string): number {
-    const config = SYMBOL_PRECISION[symbol] || { quantity: 3, price: 2, minNotional: 5 };
+    const config = SYMBOL_PRECISION[symbol] || { quantity: 3, price: 2, minNotional: 100 };
     const factor = Math.pow(10, config.quantity);
-    const adjusted = Math.floor(amount * factor) / factor;
+    let adjusted = Math.floor(amount * factor) / factor;
 
-    if (adjusted !== amount) {
+    // 🛠️ 关键修复：防止调整后为0的情况
+    if (adjusted === 0 && amount > 0) {
+        adjusted = Math.pow(10, -config.quantity); // 使用最小精度单位
+        console.log(`🛠️ Precision safety adjustment: ${amount} → ${adjusted} (was 0, using min unit)`);
+    } else if (adjusted !== amount) {
         console.log(`⚙️ Precision adjusted: ${amount} → ${adjusted} (${config.quantity} decimals)`);
     }
 
     return adjusted;
+}
+
+/**
+ * 智能调整卖出数量以避免精度问题
+ */
+function smartAdjustSellAmount(amount: number, symbol: string, positionSize: number): { 
+    adjustedAmount: number; 
+    adjustmentType: 'min' | 'all' | 'percentage' | 'none'; 
+    reason?: string 
+} {
+    const binanceSymbol = symbol.replace("/", "");
+    const config = SYMBOL_PRECISION[binanceSymbol] || { quantity: 3, price: 2, minNotional: 100 };
+    const minAmount = Math.pow(10, -config.quantity);
+    
+    let adjustedAmount = adjustPrecision(amount, binanceSymbol);
+    
+    // 如果调整后为0或小于最小交易量
+    if (adjustedAmount === 0 || adjustedAmount < minAmount) {
+        console.log(`⚠️ Sell amount ${amount} too small (min: ${minAmount}, position: ${positionSize})`);
+        
+        // 方案1: 如果持仓数量大于最小交易量，卖出最小交易量
+        if (positionSize >= minAmount) {
+            adjustedAmount = minAmount;
+            const sellPercentage = (adjustedAmount / positionSize) * 100;
+            console.log(`✅ Adjusting to minimum sell amount: ${adjustedAmount} (${sellPercentage.toFixed(1)}% of position)`);
+            return {
+                adjustedAmount,
+                adjustmentType: 'min',
+                reason: `Adjusted to minimum trade size ${minAmount} (${sellPercentage.toFixed(1)}% of position)`
+            };
+        } 
+        // 方案2: 如果持仓本身就小于最小交易量，卖出全部
+        else if (positionSize > 0) {
+            adjustedAmount = adjustPrecision(positionSize, binanceSymbol);
+            // 再次检查防止为0
+            if (adjustedAmount === 0) {
+                adjustedAmount = positionSize; // 直接使用原始持仓数量
+            }
+            console.log(`✅ Selling entire position: ${adjustedAmount} (position below minimum trade size)`);
+            return {
+                adjustedAmount,
+                adjustmentType: 'all',
+                reason: `Selling entire position as it's below minimum trade size`
+            };
+        }
+    }
+    
+    // 确保卖出数量不超过持仓数量
+    if (adjustedAmount > positionSize) {
+        adjustedAmount = adjustPrecision(positionSize, binanceSymbol);
+        console.log(`✅ Adjusting sell amount to position size: ${adjustedAmount}`);
+        return {
+            adjustedAmount,
+            adjustmentType: 'percentage',
+            reason: `Adjusted to maximum position size`
+        };
+    }
+    
+    return {
+        adjustedAmount,
+        adjustmentType: 'none'
+    };
 }
 
 /**
@@ -76,6 +142,7 @@ export async function sell(params: SellParams): Promise<SellResult> {
         // If amount not provided, calculate from current position
         let sellAmount = amount;
         let positionSide = "LONG"; // 默认平多仓
+        let positionSize = 0; // 记录持仓数量
 
         if (!sellAmount) {
             // Fetch current position
@@ -107,22 +174,36 @@ export async function sell(params: SellParams): Promise<SellResult> {
                     };
                 }
 
-                console.log(`📊 Position details:`, {
-                    symbol: position.symbol,
-                    side: position.side,
-                    contracts: position.contracts,
-                    entryPrice: position.entryPrice,
-                    markPrice: position.markPrice,
-                    unrealizedPnl: position.unrealizedPnl
-                });
+                console.log([`📊 Position details:`,
+                    `symbol: ${position.symbol}`,
+                    `side: ${position.side}`,
+                    `contracts: ${position.contracts}`,
+                    `entryPrice: ${position.entryPrice}`,
+                    `markPrice: ${position.markPrice}`,
+                    `unrealizedPnl: ${position.unrealizedPnl}`
+                ].join(' '));                
+
 
                 // 确定持仓方向
                 positionSide = position.side === "long" ? "LONG" : "SHORT";
                 console.log(`📍 Position side: ${positionSide}`);
 
                 // Calculate sell amount based on percentage
-                sellAmount = Math.abs(position.contracts) * (percentage / 100);
-                console.log(`💰 Calculated sell amount: ${sellAmount} (${percentage}% of ${Math.abs(position.contracts)})`);
+                positionSize = Math.abs(position.contracts); // 记录持仓数量
+                sellAmount = positionSize * (percentage / 100);
+                console.log(`💰 Calculated sell amount: ${sellAmount} (${percentage}% of ${positionSize})`);
+                
+                // 🛠️ 关键修复：应用智能调整
+                const adjustment = smartAdjustSellAmount(sellAmount, symbol, positionSize);
+                sellAmount = adjustment.adjustedAmount;
+                
+                if (adjustment.adjustmentType !== 'none') {
+                    console.log(`📝 Sell adjustment type: ${adjustment.adjustmentType}`);
+                    if (adjustment.reason) {
+                        console.log(`📋 Adjustment reason: ${adjustment.reason}`);
+                    }
+                }
+                
             } catch (positionError: any) {
                 console.error("❌ Failed to fetch positions:", positionError.message);
                 return {
@@ -136,25 +217,35 @@ export async function sell(params: SellParams): Promise<SellResult> {
             return { success: false, error: "Sell amount must be greater than 0" };
         }
 
-        // 调整数量精度
+        // 🛠️ 最终精度调整（使用修复后的函数）
         const adjustedAmount = adjustPrecision(sellAmount, binanceSymbol);
 
-        if (adjustedAmount === 0) {
+        // 🛠️ 最终验证
+        const minAmount = Math.pow(10, -(SYMBOL_PRECISION[binanceSymbol]?.quantity || 3));
+        if (adjustedAmount <= 0 || adjustedAmount < minAmount) {
             return {
                 success: false,
-                error: `Amount ${sellAmount} too small. Minimum for ${symbol} is ${Math.pow(10, -(SYMBOL_PRECISION[binanceSymbol]?.quantity || 3))}`
+                error: `Amount ${sellAmount} too small. Minimum for ${symbol} is ${minAmount}. Position size: ${positionSize}`
             };
         }
+
+        // 🛠️ 确保卖出数量不超过持仓数量
+        let finalSellAmount = adjustedAmount;
+        if (positionSize > 0 && finalSellAmount > positionSize) {
+            console.warn(`⚠️ Sell amount ${finalSellAmount} exceeds position size ${positionSize}, adjusting...`);
+            finalSellAmount = adjustPrecision(positionSize, binanceSymbol);
+            console.log(`✅ Adjusted sell amount to: ${finalSellAmount}`);
+        }
+
+        console.log(`✅ Final sell amount: ${finalSellAmount} ${symbol}`);
 
         // Prepare order parameters
         const orderType = price ? "LIMIT" : "MARKET";
         const side = positionSide === "LONG" ? "SELL" : "BUY"; // 平多用SELL，平空用BUY
 
         // 🔧 orderParams 只包含额外参数，不包含 symbol/side/type（这些通过函数参数传递）
-        // Do NOT send positionSide unless account is in HEDGE mode. Instead, use reduceOnly=true
-        // to ensure the order only reduces existing positions in ONE-WAY mode.
         const orderParams: any = {
-            quantity: adjustedAmount.toString(),
+            quantity: finalSellAmount.toString(), // 使用调整后的finalSellAmount
             reduceOnly: true,
         };
 
@@ -163,7 +254,7 @@ export async function sell(params: SellParams): Promise<SellResult> {
             orderParams.timeInForce = "GTC"; // Good Till Cancelled
         }
 
-        console.log(`📝 Creating ${orderType} sell order: ${adjustedAmount} ${symbol} at ${price || 'market price'}`);
+        console.log(`📝 Creating ${orderType} sell order: ${finalSellAmount} ${symbol} at ${price || 'market price'}`);
 
         let orderResult;
         let lastError;

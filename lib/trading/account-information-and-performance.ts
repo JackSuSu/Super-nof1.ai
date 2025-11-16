@@ -254,13 +254,17 @@ export async function getAccountInformationAndPerformance(
     ? currentTotalReturn / Math.abs(totalUnrealizedPnl / baseCapital)
     : 0;
 
-  console.log(`💰 Account Value Details:
-  📊 Total Wallet Balance: $${totalAccountValue.toFixed(4)}
-  💵 Available Balance: $${availableCash.toFixed(4)}  
-  📈 Unrealized PnL: $${totalUnrealizedPnl.toFixed(4)}
-  🎯 Total Return: ${(currentTotalReturn * 100).toFixed(2)}%
-  📍 Active Positions: ${positions.length}
-  💼 Positions Value: $${currentPositionsValue.toFixed(4)}`);
+
+  console.log([
+    ``,
+    `📊 TWB: $${totalAccountValue.toFixed(4)}`,
+    `💵 AB: $${availableCash.toFixed(4)}`,
+    `📈 UPnL: $${totalUnrealizedPnl.toFixed(4)}`,
+    `🎯 TReturn: ${(currentTotalReturn * 100).toFixed(2)}%`,
+    `📍 AtPs: ${positions.length}`,
+    `💼 Positions: $${currentPositionsValue.toFixed(4)}`
+].join(' '));
+
 
   // 🔍 列出活跃持仓，方�?AI 和用户查�?
   if (positions.length > 0) {

@@ -180,200 +180,87 @@ export function ModelsView() {
             <Card key={`${trade.id}-${idx}`} className="overflow-hidden border-l-4" style={{
               borderLeftColor: trade.opeartion === "Buy" ? "#10b981" : trade.opeartion === "Sell" ? "#ef4444" : "#eab308"
             }}>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 {/* Header with operation */}
-                <div className="flex items-center justify-between mb-3 pb-3 border-b">
+                <div className="flex items-center justify-between mb-1 pb-1 border-b">
                   <div className="flex items-center gap-2">
-                    {renderOperationIcon(trade.opeartion)}
-                    <span className="font-bold text-base">
-                      {trade.opeartion.toUpperCase()}
-                    </span>
-                    <span className="font-mono font-bold text-base">
+                    {renderOperationIcon(trade.opeartion)}                 
+                    <span className="font-bold text-sm">
                       {trade.symbol}
                     </span>
                     {/* Model badge */}
                     <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">
-                      {trade.model || "Unknown"}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(trade.createdAt).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                </div>
-
-                {/* Trade details grid - 优化布局 */}
-                <div className="space-y-3">
-                  {/* 第一行：价格和数量 */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Entry/Exit Price */}
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground font-medium">
-                        {trade.opeartion === "Buy" ? "Entry Price" : "Exit Price"}
-                      </div>
-                      <div className="font-mono font-bold text-base">
-                        {trade.pricing != null && !isNaN(trade.pricing) && trade.pricing !== 0 ? (
-                          `$${trade.pricing.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 8,
-                          })}`
-                        ) : (
-                          <span className="text-muted-foreground">N/A</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Amount */}
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground font-medium">
-                        Amount
-                      </div>
-                      <div className="font-mono font-semibold">
-                        {trade.amount != null && !isNaN(trade.amount) && trade.amount !== 0 ? (
-                          <>
-                            {trade.amount.toFixed(getAmountPrecision(trade.amount))} {trade.symbol}
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">N/A</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 第二行：杠杆和总价值 */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Leverage */}
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground font-medium">
-                        Leverage
-                      </div>
-                      <div className="font-mono font-semibold text-purple-600">
-                        {trade.leverage != null && !isNaN(trade.leverage) && trade.leverage !== 0 ? (
+                      {trade.leverage != null && !isNaN(trade.leverage) && trade.leverage !== 0 ? (
                           `${trade.leverage}x`
                         ) : (
                           <span className="text-muted-foreground">N/A</span>
                         )}
-                      </div>
-                    </div>
+                      
+                      {/* {trade.model || "Unknown"} */}
+                    </span>
+                    <span className="text-xs font-bold text-muted-foreground">【
+                        {trade.pricing != null && !isNaN(trade.pricing) && trade.pricing !== 0 ? (
+                              `$${trade.pricing.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 8,
+                              })}`
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}】
+                    </span>
 
-                    {/* Total Value (Position Size) */}
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground font-medium">
-                        Total Value
-                      </div>
-                      <div className="font-mono font-bold text-base">
-                        {hasValidData ? (
-                          `$${totalValue.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}`
-                        ) : (
-                          <span className="text-muted-foreground">N/A</span>
-                        )}
-                      </div>
-                    </div>
+
+                  
+
+                    <span className="text-xs font-bold text-muted-foreground">【
+                        {trade.amount != null && !isNaN(trade.amount) && trade.amount !== 0 ? (
+                              `$${trade.amount.toLocaleString(undefined, {
+                                minimumFractionDigits: 3,
+                                maximumFractionDigits: 3,
+                              })}`
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}】
+
+                    </span>
+
+
+                       {trade.leverage && trade.leverage > 1 && (                 
+
+                          <div className="font-mono text-xs text-red-600 font-semibold">
+                            【${(totalValue).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}】
+                          </div>
+                   
+                      )}
+
+
                   </div>
+                  <div className="text-xs font-bold text-muted-foreground">【
+                  {new Date(trade.createdAt).getHours().toString().padStart(2, '0')}:
+                  {new Date(trade.createdAt).getMinutes().toString().padStart(2, '0')} 】                
+                </div>
+                </div>
 
-                  {/* 第三行：名义价值（如果有杠杆）和风险指标 */}
-                  {hasValidData && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Notional Value (with leverage) */}
-                      {trade.leverage && trade.leverage > 1 && (
-                        <div className="space-y-1">
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Notional (Leveraged)
-                          </div>
-                          <div className="font-mono font-bold text-base text-blue-600">
-                            ${notionalValue.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Risk Exposure Percentage */}
-                      {trade.leverage && trade.leverage > 1 && (
-                        <div className="space-y-1">
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Capital at Risk
-                          </div>
-                          <div className="font-mono font-semibold">
-                            ${(totalValue).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 第四行：止损止盈（如果有） */}
-                  {(trade.stopLoss || trade.takeProfit) && (
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                      {/* Stop Loss */}
-                      {trade.stopLoss && (
-                        <div className="space-y-1">
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Stop Loss
-                          </div>
-                          <div className="space-y-0.5">
-                            <div className="font-mono font-semibold text-red-500 text-sm">
-                              ${trade.stopLoss.toLocaleString()}
-                            </div>
-                            {stopLossPercent && (
-                              <div className="text-xs text-red-500/80">
-                                ({stopLossPercent}%)
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Take Profit */}
-                      {trade.takeProfit && (
-                        <div className="space-y-1">
-                          <div className="text-xs text-muted-foreground font-medium">
-                            Take Profit
-                          </div>
-                          <div className="space-y-0.5">
-                            <div className="font-mono font-semibold text-green-500 text-sm">
-                              ${trade.takeProfit.toLocaleString()}
-                            </div>
-                            {takeProfitPercent && (
-                              <div className="text-xs text-green-500/80">
-                                (+{takeProfitPercent}%)
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
+                {/* Trade details grid - 优化布局 */}
+                
+       
                   {/* 第五行：预估费用提示 */}
                   {hasValidData && trade.leverage && (
+                    
+                    
                     <div className="pt-2 border-t">
                       <div className="text-xs text-muted-foreground">
                         Est. Fee Impact: ~{(trade.leverage * 0.04).toFixed(2)}% (0.04% × {trade.leverage}x leverage)
                       </div>
-                    </div>
+                   
+                     </div>
                   )}
-                </div>
+               
 
-                {/* Prediction at bottom */}
-                {trade.prediction && (
-                  <div className="mt-3 pt-3 border-t text-xs">
-                    <div className="text-muted-foreground">
-                      Prediction: {JSON.stringify(trade.prediction)}
-                    </div>
-                  </div>
-                )}
+                
               </CardContent>
             </Card>
           );
@@ -396,8 +283,8 @@ export function ModelsView() {
     }
 
     return (
-      <div className="space-y-3">
-        <div className="text-xs text-muted-foreground mb-2">
+      <div className="space-y-2">
+        <div className="text-xs text-muted-foreground ">
           {positions.length} open position{positions.length > 1 ? "s" : ""}
         </div>
         {positions.map((position, idx) => {
@@ -408,7 +295,7 @@ export function ModelsView() {
             <Card key={`${position.symbol}-${idx}`} className="overflow-hidden">
               <CardContent className="p-4">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-3 pb-3 border-b">
+                <div className="flex items-center justify-between  border-b">
                   <div className="flex items-center gap-2">
                     {isLong ? (
                       <TrendingUp className="h-4 w-4 text-green-500" />
@@ -422,104 +309,8 @@ export function ModelsView() {
                       {position.symbol}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono font-bold">
-                      {position.leverage}x
-                    </span>
-                  </div>
-                </div>
 
-                {/* Position details grid */}
-                <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-                  {/* Contracts */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Contracts
-                    </div>
-                    <div className="font-mono font-semibold">
-                      {position.contracts.toFixed(3)}
-                    </div>
-                  </div>
-
-                  {/* Notional Value */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Notional
-                    </div>
-                    <div className="font-mono font-semibold">
-                      $
-                      {Math.abs(position.notional).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Entry Price */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Entry Price
-                    </div>
-                    <div className="font-mono font-semibold">
-                      $
-                      {position.entryPrice.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Mark Price */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Mark Price
-                    </div>
-                    <div className="font-mono font-semibold">
-                      $
-                      {position.markPrice.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Liquidation Price */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Liquidation
-                    </div>
-                    <div className="font-mono font-semibold text-red-500">
-                      $
-                      {position.liquidationPrice.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Margin Type */}
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Margin Type
-                    </div>
-                    <div className="font-mono font-semibold uppercase text-xs">
-                      {position.marginType}
-                    </div>
-                  </div>
-                </div>
-
-                {/* PnL Section */}
-                <div
-                  className={`mt-3 pt-3 border-t rounded-lg p-3 ${isProfitable
-                    ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
-                    : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground font-medium">
-                      Unrealized PnL
-                    </div>
-                    <div className="text-right">
+                    <div >
                       <div
                         className={`font-mono font-bold text-base ${isProfitable ? "text-green-600" : "text-red-600"
                           }`}
@@ -529,41 +320,24 @@ export function ModelsView() {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
-                      </div>
-                      <div
-                        className={`text-xs font-semibold ${isProfitable ? "text-green-600" : "text-red-600"
+                      <span
+                        className={`text-base font-base ${isProfitable ? "text-green-600" : "text-red-600"
                           }`}
                       >
-                        {isProfitable ? "+" : ""}
-                        {position.percentage.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                        【{isProfitable ? "+" : ""}
+                        {position.percentage.toFixed(2)}%】
+                      </span>
 
-                {/* Margin info */}
-                <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-3 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Initial:</span>
-                    <span className="font-mono font-medium">
-                      $
-                      {position.initialMargin.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      </div>
+                     
+                    </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono font-bold">
+                      {position.leverage}x
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Maintenance:</span>
-                    <span className="font-mono font-medium">
-                      $
-                      {position.maintenanceMargin.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
+                </div>        
               </CardContent>
             </Card>
           );

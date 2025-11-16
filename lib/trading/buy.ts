@@ -69,12 +69,14 @@ async function getPositionMode(): Promise<"ONE_WAY" | "DUAL_SIDE"> {
         positionModeCache = "ONE_WAY";
         return positionModeCache;
     }
-} export interface BuyParams {
+}
+
+export interface BuyParams {
     symbol: string; // e.g., "BTC/USDT"
     amount: number; // Amount in base currency (BTC)
     leverage?: number; // 1-125, default 10
     price?: number; // Optional limit price, omit for market order
-    autoSetStopLoss?: boolean; // 自动设置止损，默�?true
+    autoSetStopLoss?: boolean; // 自动设置止损，默认 true
     stopLossPercent?: number; // 止损百分比，默认 3%
     takeProfitPercent?: number; // 止盈百分比，默认 10%
 }
@@ -88,54 +90,109 @@ export interface BuyResult {
 }
 
 /**
- * Binance Futures 合约的精度配�?
+ * Binance Futures 合约的精度配置
  * 数量精度 (quantity) 决定最小可交易数量
- * 注意:测试网精度可能与实盘不同
+ * 注意: 测试网精度要求与实盘可能不同，这里使用测试网实际要求
  */
 const SYMBOL_PRECISION: Record<string, { quantity: number; price: number; minNotional: number }> = {
-    "BTCUSDT": { quantity: 3, price: 1, minNotional: 100 },   // 0.001 BTC, 最�?5
-    "ETHUSDT": { quantity: 2, price: 2, minNotional: 5 },   // 0.01 ETH, 最�?5
-    "BNBUSDT": { quantity: 1, price: 2, minNotional: 5 },   // 0.1 BNB, 最�?5
-    "SOLUSDT": { quantity: 0, price: 3, minNotional: 5 },   // 1 SOL (整数), 最�?5 - 测试网精�?
-    "ADAUSDT": { quantity: 0, price: 4, minNotional: 5 },   // 1 ADA, 最�?5
-    "DOGEUSDT": { quantity: 0, price: 5, minNotional: 5 },  // 1 DOGE, 最�?5 🐕
+    "BTCUSDT": { quantity: 3, price: 1, minNotional: 100 },   // 0.001 BTC, 最小100 USDT
+    "ETHUSDT": { quantity: 2, price: 2, minNotional: 100 },   // 0.01 ETH, 最小100 USDT
+    "BNBUSDT": { quantity: 2, price: 2, minNotional: 100 },   // 0.01 BNB, 最小100 USDT
+    "SOLUSDT": { quantity: 2, price: 3, minNotional: 100 },   // 0.01 SOL, 最小100 USDT - 修正精度
+    "ADAUSDT": { quantity: 0, price: 4, minNotional: 100 },   // 1 ADA, 最小100 USDT
+    "DOGEUSDT": { quantity: 0, price: 5, minNotional: 100 },  // 1 DOGE, 最小100 USDT
 };
 
 /**
- * 调整数量精度以符�?Binance 要求
+ * 调整数量精度以符合 Binance 要求
  */
 function adjustPrecision(amount: number, symbol: string): number {
-    const config = SYMBOL_PRECISION[symbol] || { quantity: 3, price: 2, minNotional: 5 };
+    const config = SYMBOL_PRECISION[symbol] || { quantity: 3, price: 2, minNotional: 100 };
     const factor = Math.pow(10, config.quantity);
     const adjusted = Math.floor(amount * factor) / factor;
 
     if (adjusted !== amount) {
-        console.log(`⚙️ Precision adjusted: ${amount} �?${adjusted} (${config.quantity} decimals)`);
+        console.log(`⚙️ Precision adjusted: ${amount} → ${adjusted} (${config.quantity} decimals)`);
     }
 
     return adjusted;
 }
 
 /**
- * 检查订单是否满足最小名义价值要�?
+ * 检查订单是否满足最小名义价值要求
  */
-function checkMinNotional(amount: number, symbol: string, price?: number): { valid: boolean; reason?: string } {
-    const config = SYMBOL_PRECISION[symbol] || { quantity: 3, price: 2, minNotional: 5 };
-
-    // 如果没有提供价格,跳过检�?市价单在执行时会检�?
-    if (!price) {
-        return { valid: true };
-    }
+function checkMinNotional(amount: number, symbol: string, price: number): { valid: boolean; reason?: string; requiredAmount?: number } {
+    const config = SYMBOL_PRECISION[symbol] || { quantity: 3, price: 2, minNotional: 100 };
 
     const notional = amount * price;
     if (notional < config.minNotional) {
+        const requiredAmount = config.minNotional / price;
+        const adjustedRequiredAmount = adjustPrecision(requiredAmount, symbol);
+        
         return {
             valid: false,
-            reason: `Order value $${notional.toFixed(2)} below minimum $${config.minNotional}`
+            reason: `Order value $${notional.toFixed(2)} below minimum $${config.minNotional}. Need at least ${adjustedRequiredAmount} ${symbol}`,
+            requiredAmount: adjustedRequiredAmount
         };
     }
 
     return { valid: true };
+}
+
+/**
+ * 智能调整订单以满足最小名义价值要求
+ */
+function smartAdjustOrderForMinNotional(
+    amount: number, 
+    symbol: string, 
+    currentPrice: number, 
+    leverage: number
+): { adjustedAmount: number; adjustedLeverage: number; adjustmentType: 'amount' | 'leverage' | 'both' | 'none'; reason?: string } {
+    const binanceSymbol = symbol.replace("/", "");
+    const config = SYMBOL_PRECISION[binanceSymbol] || { quantity: 3, price: 2, minNotional: 100 };
+    
+    const currentNotional = amount * currentPrice;
+    
+    // 如果当前名义价值已经满足要求，不需要调整
+    if (currentNotional >= config.minNotional) {
+        return { 
+            adjustedAmount: amount, 
+            adjustedLeverage: leverage, 
+            adjustmentType: 'none' 
+        };
+    }
+    
+    console.log(`💰 Order value $${currentNotional.toFixed(2)} below minimum $${config.minNotional}`);
+    
+    // 计算需要的最小数量
+    const requiredMinAmount = config.minNotional / currentPrice;
+    const adjustedRequiredAmount = adjustPrecision(requiredMinAmount, binanceSymbol);
+    
+    // 重新计算调整后的名义价值
+    const newNotional = adjustedRequiredAmount * currentPrice;
+    
+    // 确保调整后的数量满足最小名义价值
+    if (newNotional < config.minNotional) {
+        // 如果仍然不满足，增加一个最小精度单位
+        const minIncrement = Math.pow(10, -config.quantity);
+        const finalAdjustedAmount = adjustedRequiredAmount + minIncrement;
+        
+        console.log(`✅ Final adjustment: ${amount} → ${finalAdjustedAmount} ${symbol}`);
+        return { 
+            adjustedAmount: finalAdjustedAmount, 
+            adjustedLeverage: leverage, 
+            adjustmentType: 'amount',
+            reason: `Adjusted to meet minimum notional $${config.minNotional}`
+        };
+    }
+    
+    console.log(`✅ Choosing amount adjustment: ${amount} → ${adjustedRequiredAmount}`);
+    return { 
+        adjustedAmount: adjustedRequiredAmount, 
+        adjustedLeverage: leverage, 
+        adjustmentType: 'amount',
+        reason: `Adjusted to meet minimum notional $${config.minNotional}`
+    };
 }
 
 /**
@@ -168,7 +225,7 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
     }
 
     try {
-        // 🔄 每次交易前先同步服务器时�?
+        // 🔄 每次交易前先同步服务器时间
         await ensureTimeSync();
 
         const client = await getBinanceInstance();
@@ -176,7 +233,7 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
         // Convert symbol format: "BTC/USDT" -> "BTCUSDT"
         const binanceSymbol = symbol.replace("/", "");
 
-        // 🔍 如果是市价单，先获取当前价格用于订单价值计�?
+        // 🔍 如果是市价单，先获取当前价格用于订单价值计算
         let currentPrice = price;
         if (!currentPrice) {
             try {
@@ -185,57 +242,92 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
                 console.log(`📊 Current ${symbol} mark price: $${currentPrice.toFixed(2)}`);
             } catch (e: any) {
                 console.warn(`⚠️ Failed to fetch price, using fallback`);
-                currentPrice = 1; // 后备方案
+                // 使用更合理的后备价格，避免计算错误
+                const fallbackPrices: Record<string, number> = {
+                    "BTCUSDT": 50000,
+                    "ETHUSDT": 3000,
+                    "BNBUSDT": 500,
+                    "SOLUSDT": 100,
+                    "ADAUSDT": 0.5,
+                    "DOGEUSDT": 0.1
+                };
+                currentPrice = fallbackPrices[binanceSymbol] || 1;
+                console.log(`📊 Using fallback price: $${currentPrice.toFixed(2)}`);
             }
         }
 
         // 调整数量精度
         let adjustedAmount = adjustPrecision(amount, binanceSymbol);
         const minAmount = Math.pow(10, -(SYMBOL_PRECISION[binanceSymbol]?.quantity || 3));
+        let effectiveLeverage = leverage;
 
-        // 🎯 智能处理小订�? 自动放大杠杆或建议放�?
-        let effectiveLeverage = leverage; // 实际使用的杠�?
-        if (adjustedAmount === 0 || adjustedAmount < minAmount) {
-            console.log(`⚠️ Amount ${amount} too small (min: ${minAmount})`);
-
-            // 计算需要的最小数量和对应的杠杆（使用实际价格�?
-            const currentPositionValue = amount * currentPrice;
-            const minPositionValue = minAmount * currentPrice;
-            const suggestedMultiplier = Math.ceil(minPositionValue / currentPositionValue);
-            const suggestedLeverage = Math.min(leverage * suggestedMultiplier, 30);
-
-            // 建议策略
-            console.log(`💡 Smart Order Suggestion:`);
-            console.log(`   Current: ${amount} ${symbol} @ ${leverage}x = $${currentPositionValue.toFixed(2)}`);
-            console.log(`   Minimum: ${minAmount} ${symbol} = $${minPositionValue.toFixed(2)}`);
-            console.log(`   Option 1: 🚀 Increase to ${suggestedLeverage}x leverage (${suggestedMultiplier}x position)`);
-            console.log(`   Option 2: ⏭️  Skip this trade (signal too weak)`);
-
-            // 🔥 激进策�? 允许最�?0x杠杆，最�?0倍位置放�?
-            const MAX_SAFE_LEVERAGE = 30;
-            const MAX_POSITION_MULTIPLIER = 20;
-
-            // 🛡�?保证金安全检查：考虑账户余额
-            // 假设需要至�?2% 的账户余额作为保证金（考虑维持保证金和手续费）
-            const MARGIN_SAFETY_FACTOR = 0.02; // 2% 的账户用于单笔交�?
-            const estimatedAccountBalance = minPositionValue / MARGIN_SAFETY_FACTOR; // 反推需要的账户余额
-
-            if (suggestedLeverage <= MAX_SAFE_LEVERAGE && suggestedMultiplier <= MAX_POSITION_MULTIPLIER) {
-                adjustedAmount = minAmount;
-                effectiveLeverage = suggestedLeverage; // 🔥 更新实际杠杆�?
-                console.log(`�?Auto-adjusting: ${amount} �?${adjustedAmount} ${symbol}`);
-                console.log(`📈 Effective leverage increased to ${effectiveLeverage}x (within ${MAX_SAFE_LEVERAGE}x limit)`);
-                console.log(`💰 Estimated required account balance: $${estimatedAccountBalance.toFixed(2)}`);
-                console.log(`   ⚠️ WARNING: This assumes you have sufficient margin. If "Margin is insufficient" error occurs, the AI will skip this trade.`);
-            } else {
+        // 🆕 第一步：检查并调整以满足最小名义价值要求
+        const notionalCheck = checkMinNotional(adjustedAmount, binanceSymbol, currentPrice);
+        if (!notionalCheck.valid) {
+            console.log(`🔄 Adjusting order to meet minimum notional requirement...`);
+            
+            const adjustment = smartAdjustOrderForMinNotional(adjustedAmount, symbol, currentPrice, effectiveLeverage);
+            adjustedAmount = adjustment.adjustedAmount;
+            effectiveLeverage = adjustment.adjustedLeverage;
+            
+            console.log(`✅ Adjusted: amount=${adjustedAmount}, leverage=${effectiveLeverage}x, type=${adjustment.adjustmentType}`);
+            if (adjustment.reason) {
+                console.log(`📝 Reason: ${adjustment.reason}`);
+            }
+            
+            // 验证调整后的名义价值
+            const finalNotional = adjustedAmount * currentPrice;
+            console.log(`💰 Final order value: $${finalNotional.toFixed(2)}`);
+            
+            if (finalNotional < SYMBOL_PRECISION[binanceSymbol].minNotional) {
                 return {
                     success: false,
-                    error: `Amount ${amount} too small. Minimum for ${symbol} is ${minAmount}. Suggested leverage ${suggestedLeverage}x exceeds safe limit ${MAX_SAFE_LEVERAGE}x - SKIP THIS TRADE.`
+                    error: `Cannot meet minimum notional $${SYMBOL_PRECISION[binanceSymbol].minNotional} for ${symbol}. Adjusted value: $${finalNotional.toFixed(2)}`
                 };
             }
         }
 
-        // 🛡�?最终安全检查：确保调整后的数量有效
+        // 🎯 第二步：智能处理小订单（数量精度不足）
+        if (adjustedAmount === 0 || adjustedAmount < minAmount) {
+            console.log(`⚠️ Amount ${adjustedAmount} too small (min: ${minAmount})`);
+
+            // 计算需要的最小数量和对应的杠杆
+            const currentPositionValue = adjustedAmount * currentPrice;
+            const minPositionValue = minAmount * currentPrice;
+            const suggestedMultiplier = Math.ceil(minPositionValue / currentPositionValue);
+            const suggestedLeverage = Math.min(effectiveLeverage * suggestedMultiplier, 30);
+
+            console.log(`💡 Smart Order Suggestion:`);
+            console.log(`   Current: ${adjustedAmount} ${symbol} @ ${effectiveLeverage}x = $${currentPositionValue.toFixed(2)}`);
+            console.log(`   Minimum: ${minAmount} ${symbol} = $${minPositionValue.toFixed(2)}`);
+            console.log(`   Option: Increase to ${suggestedLeverage}x leverage`);
+
+            const MAX_SAFE_LEVERAGE = 30;
+            const MAX_POSITION_MULTIPLIER = 20;
+
+            if (suggestedLeverage <= MAX_SAFE_LEVERAGE && suggestedMultiplier <= MAX_POSITION_MULTIPLIER) {
+                adjustedAmount = minAmount;
+                effectiveLeverage = suggestedLeverage;
+                console.log(`✅ Auto-adjusting: amount → ${adjustedAmount} ${symbol}`);
+                console.log(`📈 Effective leverage increased to ${effectiveLeverage}x`);
+                
+                // 再次检查名义价值
+                const newNotionalCheck = checkMinNotional(adjustedAmount, binanceSymbol, currentPrice);
+                if (!newNotionalCheck.valid) {
+                    console.log(`🔄 Re-adjusting for minimum notional after precision fix...`);
+                    const readjustment = smartAdjustOrderForMinNotional(adjustedAmount, symbol, currentPrice, effectiveLeverage);
+                    adjustedAmount = readjustment.adjustedAmount;
+                    effectiveLeverage = readjustment.adjustedLeverage;
+                }
+            } else {
+                return {
+                    success: false,
+                    error: `Amount ${adjustedAmount} too small. Minimum for ${symbol} is ${minAmount}. Suggested leverage ${suggestedLeverage}x exceeds safe limit.`
+                };
+            }
+        }
+
+        // 🛡️ 最终安全检查：确保调整后的数量有效
         if (adjustedAmount <= 0 || adjustedAmount < minAmount) {
             return {
                 success: false,
@@ -243,26 +335,24 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
             };
         }
 
-        console.log(`�?Final order amount: ${adjustedAmount} ${symbol} (original: ${amount})`);
-
-        // 检查最小订单价�?限价�?
-        if (price) {
-            const notionalCheck = checkMinNotional(adjustedAmount, binanceSymbol, price);
-            if (!notionalCheck.valid) {
-                return {
-                    success: false,
-                    error: notionalCheck.reason || "Order value too small"
-                };
-            }
+        // 🛡️ 最终名义价值检查
+        const finalNotionalCheck = checkMinNotional(adjustedAmount, binanceSymbol, currentPrice);
+        if (!finalNotionalCheck.valid) {
+            return {
+                success: false,
+                error: finalNotionalCheck.reason || "Order value too small after adjustments"
+            };
         }
 
-        // 🎯 设置杠杆（如果自动放大了倍数，需要使用更高的杠杆�?
+        console.log(`✅ Final order: ${adjustedAmount} ${symbol} @ $${currentPrice.toFixed(2)} = $${(adjustedAmount * currentPrice).toFixed(2)} (leverage: ${effectiveLeverage}x)`);
+
+        // 🎯 设置杠杆
         try {
             console.log(`🔧 Setting leverage to ${effectiveLeverage}x for ${symbol}...`);
             await (client as any).changeInitialLeverage(binanceSymbol, {
                 leverage: effectiveLeverage,
             });
-            console.log(`�?Leverage set successfully: ${effectiveLeverage}x`);
+            console.log(`✅ Leverage set successfully: ${effectiveLeverage}x`);
         } catch (leverageError: any) {
             const errorMsg = leverageError?.response?.data?.msg || leverageError.message;
             console.warn(`⚠️ Failed to set leverage: ${errorMsg}`);
@@ -275,7 +365,7 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
         // Prepare order parameters
         const orderType = price ? "LIMIT" : "MARKET";
 
-        // 🔧 orderParams 只包含额外参数，不包�?symbol/side/type（这些通过函数参数传递）
+        // 🔧 orderParams 只包含额外参数，不包含symbol/side/type（这些通过函数参数传递）
         const orderParams: any = {
             quantity: adjustedAmount.toString(),
         };
@@ -294,7 +384,7 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
             orderParams.timeInForce = "GTC"; // Good Till Cancelled
         }
 
-        console.log(`📝 Creating ${orderType} buy order: ${adjustedAmount} ${symbol} (original: ${amount}) at ${price || 'market price'} with ${effectiveLeverage}x leverage`);
+        console.log(`📝 Creating ${orderType} buy order: ${adjustedAmount} ${symbol} at ${price || 'market price'} with ${effectiveLeverage}x leverage`);
 
         let orderResult;
         let lastError;
@@ -305,7 +395,6 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
                 console.log(`🔄 Buy order attempt ${attempt}/3...`);
 
                 // Binance SDK requires: newOrder(symbol, side, type, options)
-                // Not just newOrder(options)!
                 const response = await (client as any).newOrder(
                     binanceSymbol,
                     "BUY",
@@ -314,16 +403,25 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
                 );
 
                 orderResult = response.data;
-                console.log(`�?Buy order created successfully on attempt ${attempt}`);
+                console.log(`✅ Buy order created successfully on attempt ${attempt}`);
                 break; // Success, exit loop
             } catch (orderError: any) {
                 lastError = orderError;
                 const errorMsg = orderError?.response?.data?.msg || orderError.message;
                 console.warn(`⚠️ Buy order attempt ${attempt} failed: ${errorMsg}`);
 
+                // 如果是精度问题，尝试重新调整
+                if (errorMsg.includes('Precision') && attempt === 1) {
+                    console.log(`🔄 Precision error detected, re-adjusting amount...`);
+                    // 获取更精确的精度信息并重新调整
+                    adjustedAmount = adjustPrecision(adjustedAmount + Math.pow(10, -(SYMBOL_PRECISION[binanceSymbol]?.quantity || 3)), binanceSymbol);
+                    orderParams.quantity = adjustedAmount.toString();
+                    console.log(`✅ Re-adjusted amount to: ${adjustedAmount}`);
+                }
+
                 if (attempt < 3) {
                     const delay = attempt * 3000; // Increasing delay: 3s, 6s
-                    console.log(`�?Retrying in ${delay}ms...`);
+                    console.log(`⏳ Retrying in ${delay}ms...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 } else {
                     throw orderError; // Last attempt failed, throw error
@@ -335,18 +433,17 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
             throw lastError || new Error("Failed to create order after 3 attempts");
         }
 
-        console.log(`�?Buy order created successfully:`, orderResult);
+        console.log(`✅ Buy order created successfully:`, orderResult);
 
-        // 🛡�?自动设置止盈止损
+        // 🛡️ 自动设置止盈止损
         if (autoSetStopLoss) {
-            console.log(`\n🛡�?Setting automatic stop loss and take profit...`);
+            console.log(`\n🛡️ Setting automatic stop loss and take profit...`);
 
             // 等待更长时间确保订单完全执行并同步到API
-            // 市价单通常需�?3-5 秒才能在持仓列表中显�?
-            console.log(`�?Waiting 8 seconds for position to sync and orders to settle...`);
+            console.log(`⏳ Waiting 8 seconds for position to sync and orders to settle...`);
             await new Promise(resolve => setTimeout(resolve, 8000));
 
-            // 重试逻辑：最多尝�?3 �?每次等待更长时间让旧订单清理完成
+            // 重试逻辑：最多尝试3次
             let slTpSuccess = false;
             for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
@@ -354,32 +451,20 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
 
                     const slTpResult = await setStopLossTakeProfit({
                         symbol,
-                        // 若未提供百分比，将在模块内基于ATR动态计�?
                         ...(typeof stopLossPercent === 'number' ? { stopLossPercent } : {}),
                         ...(typeof takeProfitPercent === 'number' ? { takeProfitPercent } : {}),
                     });
 
                     if (slTpResult.success) {
-                        console.log(`�?SL/TP set successfully on attempt ${attempt}:`);
-                        if (typeof stopLossPercent === 'number') {
-                            console.log(`   🛑 Stop Loss: ${stopLossPercent}% (Order ID: ${slTpResult.stopLossOrderId})`);
-                        } else {
-                            console.log(`   🛑 Stop Loss: dynamic (ATR‑based) (Order ID: ${slTpResult.stopLossOrderId})`);
-                        }
-                        if (typeof takeProfitPercent === 'number') {
-                            console.log(`   🎯 Take Profit: ${takeProfitPercent}% (Order ID: ${slTpResult.takeProfitOrderId})`);
-                        } else {
-                            console.log(`   🎯 Take Profit: dynamic (ATR‑based) (Order ID: ${slTpResult.takeProfitOrderId})`);
-                        }
+                        console.log(`✅ SL/TP set successfully on attempt ${attempt}`);
                         slTpSuccess = true;
                         break;
                     } else {
                         console.warn(`⚠️ Attempt ${attempt} failed: ${slTpResult.error}`);
 
                         if (attempt < 3) {
-                            // 逐渐增加等待时间: 3s, 5s
                             const delay = attempt === 1 ? 3000 : 5000;
-                            console.log(`�?Waiting ${delay / 1000} seconds before retry...`);
+                            console.log(`⏳ Waiting ${delay / 1000} seconds before retry...`);
                             await new Promise(resolve => setTimeout(resolve, delay));
                         }
                     }
@@ -388,15 +473,14 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
 
                     if (attempt < 3) {
                         const delay = attempt === 1 ? 3000 : 5000;
-                        console.log(`�?Waiting ${delay / 1000} seconds before retry...`);
+                        console.log(`⏳ Waiting ${delay / 1000} seconds before retry...`);
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
                 }
             }
 
             if (!slTpSuccess) {
-                console.warn(`�?Failed to set SL/TP after 3 attempts`);
-                console.warn(`   ℹ️ You can set it manually using: tsx manage-sltp.ts set ${symbol}`);
+                console.warn(`❌ Failed to set SL/TP after 3 attempts`);
             }
         }
 
@@ -409,7 +493,7 @@ export async function buy(params: BuyParams): Promise<BuyResult> {
         };
     } catch (error: any) {
         const errorMessage = error.message || "Unknown error occurred during buy";
-        console.error("�?Buy order failed:", errorMessage);
+        console.error("❌ Buy order failed:", errorMessage);
         console.error("📋 Error details:", {
             symbol,
             amount,
