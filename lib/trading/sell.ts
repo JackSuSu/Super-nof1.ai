@@ -1,6 +1,7 @@
 import "@/lib/utils/logger";
 import { getBinanceInstance, ensureTimeSync } from "./binance-official";
 import { fetchPositions } from "./positions";
+import { getPositionMode } from "./buy"; // 导入持仓模式函数
 
 export interface SellParams {
     symbol: string; // e.g., "BTC/USDT"
@@ -181,8 +182,7 @@ export async function sell(params: SellParams): Promise<SellResult> {
                     `entryPrice: ${position.entryPrice}`,
                     `markPrice: ${position.markPrice}`,
                     `unrealizedPnl: ${position.unrealizedPnl}`
-                ].join(' '));                
-
+                ].join(' '));
 
                 // 确定持仓方向
                 positionSide = position.side === "long" ? "LONG" : "SHORT";
@@ -239,15 +239,27 @@ export async function sell(params: SellParams): Promise<SellResult> {
 
         console.log(`✅ Final sell amount: ${finalSellAmount} ${symbol}`);
 
+        // Get position mode to determine if we need positionSide parameter
+        const positionMode = await getPositionMode();
+
         // Prepare order parameters
         const orderType = price ? "LIMIT" : "MARKET";
         const side = positionSide === "LONG" ? "SELL" : "BUY"; // 平多用SELL，平空用BUY
 
-        // 🔧 orderParams 只包含额外参数，不包含 symbol/side/type（这些通过函数参数传递）
+        // 🔧 根据持仓模式设置订单参数
         const orderParams: any = {
-            quantity: finalSellAmount.toString(), // 使用调整后的finalSellAmount
-            reduceOnly: true,
+            quantity: finalSellAmount.toString(),
         };
+
+        // 双向持仓模式下必须设置 positionSide
+        if (positionMode === "DUAL_SIDE") {
+            orderParams.positionSide = positionSide;
+            console.log(`📍 Using DUAL_SIDE mode with positionSide: ${positionSide}`);
+        } else {
+            // 单向持仓模式下使用 reduceOnly
+            orderParams.reduceOnly = true;
+            console.log(`📍 Using ONE_WAY mode with reduceOnly: true`);
+        }
 
         if (price) {
             orderParams.price = price.toString();
@@ -280,6 +292,30 @@ export async function sell(params: SellParams): Promise<SellResult> {
                 lastError = orderError;
                 const errorMsg = orderError?.response?.data?.msg || orderError.message;
                 console.warn(`⚠️ Sell order attempt ${attempt} failed: ${errorMsg}`);
+
+                // 🛠️ 如果是持仓方向错误，尝试调整参数
+                if (errorMsg.includes("position side does not match") && attempt === 1) {
+                    console.log(`🔄 Position side error detected, adjusting order parameters...`);
+                    
+                    // 清除持仓模式缓存，重新获取
+                    const client = await getBinanceInstance();
+                    const positionModeResponse = await (client as any).positionMode();
+                    const dualSidePosition = positionModeResponse.data?.dualSidePosition ?? positionModeResponse?.dualSidePosition ?? false;
+                    const currentPositionMode = dualSidePosition ? "DUAL_SIDE" : "ONE_WAY";
+                    
+                    console.log(`🔄 Current position mode: ${currentPositionMode}`);
+                    
+                    // 根据实际持仓模式调整参数
+                    if (currentPositionMode === "DUAL_SIDE") {
+                        orderParams.positionSide = positionSide;
+                        delete orderParams.reduceOnly;
+                        console.log(`✅ Adjusted to DUAL_SIDE mode with positionSide: ${positionSide}`);
+                    } else {
+                        orderParams.reduceOnly = true;
+                        delete orderParams.positionSide;
+                        console.log(`✅ Adjusted to ONE_WAY mode with reduceOnly: true`);
+                    }
+                }
 
                 if (attempt < 3) {
                     const delay = attempt * 2000; // Increasing delay: 2s, 4s

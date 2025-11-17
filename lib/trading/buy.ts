@@ -10,7 +10,7 @@ let positionModeCache: "ONE_WAY" | "DUAL_SIDE" | null = null;
  * Get position mode setting from Binance
  * Returns "ONE_WAY" (单向持仓) or "DUAL_SIDE" (双向持仓)
  */
-async function getPositionMode(): Promise<"ONE_WAY" | "DUAL_SIDE"> {
+export async function getPositionMode(): Promise<"ONE_WAY" | "DUAL_SIDE"> {
     if (positionModeCache) {
         return positionModeCache;
     }
