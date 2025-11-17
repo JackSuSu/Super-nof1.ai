@@ -1,13 +1,12 @@
 import "@/lib/utils/logger";
 import { getBinanceInstance, ensureTimeSync } from "./binance-official";
-import { fetchPositions } from "./positions";
 import { getPositionMode } from "./buy"; // 导入持仓模式函数
 
 export interface SellParams {
     symbol: string; // e.g., "BTC/USDT"
-    percentage?: number; // Percentage of position to close (0-100)
-    amount?: number; // Absolute amount to sell (overrides percentage)
+    amount: number; // 开空仓的数量
     price?: number; // Optional limit price, omit for market order
+    leverage?: number; // 杠杆倍数
 }
 
 export interface SellResult {
@@ -50,85 +49,34 @@ function adjustPrecision(amount: number, symbol: string): number {
 }
 
 /**
- * 智能调整卖出数量以避免精度问题
+ * 设置杠杆
  */
-function smartAdjustSellAmount(amount: number, symbol: string, positionSize: number): { 
-    adjustedAmount: number; 
-    adjustmentType: 'min' | 'all' | 'percentage' | 'none'; 
-    reason?: string 
-} {
-    const binanceSymbol = symbol.replace("/", "");
-    const config = SYMBOL_PRECISION[binanceSymbol] || { quantity: 3, price: 2, minNotional: 100 };
-    const minAmount = Math.pow(10, -config.quantity);
-    
-    let adjustedAmount = adjustPrecision(amount, binanceSymbol);
-    
-    // 如果调整后为0或小于最小交易量
-    if (adjustedAmount === 0 || adjustedAmount < minAmount) {
-        console.log(`⚠️ Sell amount ${amount} too small (min: ${minAmount}, position: ${positionSize})`);
-        
-        // 方案1: 如果持仓数量大于最小交易量，卖出最小交易量
-        if (positionSize >= minAmount) {
-            adjustedAmount = minAmount;
-            const sellPercentage = (adjustedAmount / positionSize) * 100;
-            console.log(`✅ Adjusting to minimum sell amount: ${adjustedAmount} (${sellPercentage.toFixed(1)}% of position)`);
-            return {
-                adjustedAmount,
-                adjustmentType: 'min',
-                reason: `Adjusted to minimum trade size ${minAmount} (${sellPercentage.toFixed(1)}% of position)`
-            };
-        } 
-        // 方案2: 如果持仓本身就小于最小交易量，卖出全部
-        else if (positionSize > 0) {
-            adjustedAmount = adjustPrecision(positionSize, binanceSymbol);
-            // 再次检查防止为0
-            if (adjustedAmount === 0) {
-                adjustedAmount = positionSize; // 直接使用原始持仓数量
-            }
-            console.log(`✅ Selling entire position: ${adjustedAmount} (position below minimum trade size)`);
-            return {
-                adjustedAmount,
-                adjustmentType: 'all',
-                reason: `Selling entire position as it's below minimum trade size`
-            };
-        }
+async function setLeverage(symbol: string, leverage: number): Promise<void> {
+    try {
+        const client = await getBinanceInstance();
+        await (client as any).leverage(symbol, leverage);
+        console.log(`✅ Leverage set to ${leverage}x for ${symbol}`);
+    } catch (error: any) {
+        console.warn(`⚠️ Failed to set leverage: ${error.message}`);
+        // 继续执行，杠杆设置失败不一定影响开仓
     }
-    
-    // 确保卖出数量不超过持仓数量
-    if (adjustedAmount > positionSize) {
-        adjustedAmount = adjustPrecision(positionSize, binanceSymbol);
-        console.log(`✅ Adjusting sell amount to position size: ${adjustedAmount}`);
-        return {
-            adjustedAmount,
-            adjustmentType: 'percentage',
-            reason: `Adjusted to maximum position size`
-        };
-    }
-    
-    return {
-        adjustedAmount,
-        adjustmentType: 'none'
-    };
 }
 
 /**
- * Execute a sell order on Binance Futures to close position using official SDK
- * @param params Sell order parameters
+ * Execute a short sell order on Binance Futures to open SHORT position
+ * @param params Sell order parameters for opening short position
  * @returns Sell result with order details or error
  */
 export async function sell(params: SellParams): Promise<SellResult> {
-    const { symbol, percentage = 100, amount, price } = params;
+    const { symbol, amount, price, leverage } = params;
 
     // Validate parameters
     if (!symbol || !symbol.includes("/")) {
         return { success: false, error: "Invalid symbol format. Use 'BTC/USDT'" };
     }
 
-    if (percentage <= 0 || percentage > 100) {
-        return {
-            success: false,
-            error: "Percentage must be between 0 and 100",
-        };
+    if (!amount || amount <= 0) {
+        return { success: false, error: "Amount must be greater than 0" };
     }
 
     try {
@@ -140,125 +88,44 @@ export async function sell(params: SellParams): Promise<SellResult> {
         // Convert symbol format: "BTC/USDT" -> "BTCUSDT"
         const binanceSymbol = symbol.replace("/", "");
 
-        // If amount not provided, calculate from current position
-        let sellAmount = amount;
-        let positionSide = "LONG"; // 默认平多仓
-        let positionSize = 0; // 记录持仓数量
-
-        if (!sellAmount) {
-            // Fetch current position
-            try {
-                console.log(`🔍 Fetching position for ${symbol}...`);
-                const positions = await fetchPositions();
-                console.log(`✅ Found ${positions.length} total positions`);
-
-                // 过滤出活跃持仓
-                const activePositions = positions.filter(p => p.contracts !== 0);
-                console.log(`📊 Active positions: ${activePositions.length}`);
-
-                if (activePositions.length > 0) {
-                    console.log(`📋 Active positions list:`);
-                    activePositions.forEach(p => {
-                        console.log(`   - ${p.symbol}: ${p.contracts > 0 ? 'LONG' : 'SHORT'} ${Math.abs(p.contracts)} @ $${p.entryPrice}`);
-                    });
-                }
-
-                // 🔧 修复：使用 binanceSymbol（无斜杠）进行匹配
-                const position = positions.find((p) => p.symbol === binanceSymbol && p.contracts !== 0);
-
-                if (!position || !position.contracts || position.contracts === 0) {
-                    console.warn(`⚠️ No open position found for ${symbol}`);
-                    console.warn(`   Available positions: ${activePositions.map(p => p.symbol).join(', ') || 'None'}`);
-                    return {
-                        success: false,
-                        error: `No open position found for ${symbol}. Available: ${activePositions.map(p => p.symbol).join(', ') || 'None'}`,
-                    };
-                }
-
-                console.log([`📊 Position details:`,
-                    `symbol: ${position.symbol}`,
-                    `side: ${position.side}`,
-                    `contracts: ${position.contracts}`,
-                    `entryPrice: ${position.entryPrice}`,
-                    `markPrice: ${position.markPrice}`,
-                    `unrealizedPnl: ${position.unrealizedPnl}`
-                ].join(' '));
-
-                // 确定持仓方向
-                positionSide = position.side === "long" ? "LONG" : "SHORT";
-                console.log(`📍 Position side: ${positionSide}`);
-
-                // Calculate sell amount based on percentage
-                positionSize = Math.abs(position.contracts); // 记录持仓数量
-                sellAmount = positionSize * (percentage / 100);
-                console.log(`💰 Calculated sell amount: ${sellAmount} (${percentage}% of ${positionSize})`);
-                
-                // 🛠️ 关键修复：应用智能调整
-                const adjustment = smartAdjustSellAmount(sellAmount, symbol, positionSize);
-                sellAmount = adjustment.adjustedAmount;
-                
-                if (adjustment.adjustmentType !== 'none') {
-                    console.log(`📝 Sell adjustment type: ${adjustment.adjustmentType}`);
-                    if (adjustment.reason) {
-                        console.log(`📋 Adjustment reason: ${adjustment.reason}`);
-                    }
-                }
-                
-            } catch (positionError: any) {
-                console.error("❌ Failed to fetch positions:", positionError.message);
-                return {
-                    success: false,
-                    error: `Failed to fetch position for ${symbol}: ${positionError.message}`,
-                };
-            }
+        // 设置杠杆（如果提供了的话）
+        if (leverage) {
+            await setLeverage(binanceSymbol, leverage);
         }
 
-        if (sellAmount <= 0) {
-            return { success: false, error: "Sell amount must be greater than 0" };
-        }
-
-        // 🛠️ 最终精度调整（使用修复后的函数）
-        const adjustedAmount = adjustPrecision(sellAmount, binanceSymbol);
+        // 🛠️ 精度调整
+        const adjustedAmount = adjustPrecision(amount, binanceSymbol);
 
         // 🛠️ 最终验证
         const minAmount = Math.pow(10, -(SYMBOL_PRECISION[binanceSymbol]?.quantity || 3));
         if (adjustedAmount <= 0 || adjustedAmount < minAmount) {
             return {
                 success: false,
-                error: `Amount ${sellAmount} too small. Minimum for ${symbol} is ${minAmount}. Position size: ${positionSize}`
+                error: `Amount ${amount} too small. Minimum for ${symbol} is ${minAmount}`
             };
         }
 
-        // 🛠️ 确保卖出数量不超过持仓数量
-        let finalSellAmount = adjustedAmount;
-        if (positionSize > 0 && finalSellAmount > positionSize) {
-            console.warn(`⚠️ Sell amount ${finalSellAmount} exceeds position size ${positionSize}, adjusting...`);
-            finalSellAmount = adjustPrecision(positionSize, binanceSymbol);
-            console.log(`✅ Adjusted sell amount to: ${finalSellAmount}`);
-        }
+        console.log(`✅ Final short sell amount: ${adjustedAmount} ${symbol}`);
 
-        console.log(`✅ Final sell amount: ${finalSellAmount} ${symbol}`);
-
-        // Get position mode to determine if we need positionSide parameter
+        // Get position mode to determine order parameters
         const positionMode = await getPositionMode();
 
-        // Prepare order parameters
+        // Prepare order parameters for SHORT position
         const orderType = price ? "LIMIT" : "MARKET";
-        const side = positionSide === "LONG" ? "SELL" : "BUY"; // 平多用SELL，平空用BUY
+        const side = "SELL"; // 开空仓使用 SELL
 
         // 🔧 根据持仓模式设置订单参数
         const orderParams: any = {
-            quantity: finalSellAmount.toString(),
+            quantity: adjustedAmount.toString(),
         };
 
-        // 双向持仓模式下必须设置 positionSide
+        // 双向持仓模式下必须设置 positionSide 为 SHORT
         if (positionMode === "DUAL_SIDE") {
-            orderParams.positionSide = positionSide;
-            console.log(`📍 Using DUAL_SIDE mode with positionSide: ${positionSide}`);
+            orderParams.positionSide = "SHORT";
+            console.log(`📍 Using DUAL_SIDE mode with positionSide: SHORT`);
         } else {
-            // 单向持仓模式下使用 reduceOnly
-            orderParams.reduceOnly = true;
-            console.log(`📍 Using ONE_WAY mode with reduceOnly: true`);
+            // 单向持仓模式下不需要设置 positionSide，SELL 就是开空仓
+            console.log(`📍 Using ONE_WAY mode: SELL opens short position`);
         }
 
         if (price) {
@@ -266,7 +133,7 @@ export async function sell(params: SellParams): Promise<SellResult> {
             orderParams.timeInForce = "GTC"; // Good Till Cancelled
         }
 
-        console.log(`📝 Creating ${orderType} sell order: ${finalSellAmount} ${symbol} at ${price || 'market price'}`);
+        console.log(`📝 Creating ${orderType} SHORT order: ${adjustedAmount} ${symbol} at ${price || 'market price'}`);
 
         let orderResult;
         let lastError;
@@ -274,7 +141,7 @@ export async function sell(params: SellParams): Promise<SellResult> {
         // Retry up to 3 times
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-                console.log(`🔄 Sell order attempt ${attempt}/3...`);
+                console.log(`🔄 Short sell order attempt ${attempt}/3...`);
 
                 // Binance SDK requires: newOrder(symbol, side, type, options)
                 const response = await (client as any).newOrder(
@@ -286,14 +153,14 @@ export async function sell(params: SellParams): Promise<SellResult> {
 
                 // Response is an axios response with data property
                 orderResult = response.data;
-                console.log(`✅ Sell order created successfully on attempt ${attempt}`);
+                console.log(`✅ Short sell order created successfully on attempt ${attempt}`);
                 break; // Success, exit loop
             } catch (orderError: any) {
                 lastError = orderError;
                 const errorMsg = orderError?.response?.data?.msg || orderError.message;
-                console.warn(`⚠️ Sell order attempt ${attempt} failed: ${errorMsg}`);
+                console.warn(`⚠️ Short sell order attempt ${attempt} failed: ${errorMsg}`);
 
-                // 🛠️ 如果是持仓方向错误，尝试调整参数
+                // 🛠️ 处理特定的错误情况
                 if (errorMsg.includes("position side does not match") && attempt === 1) {
                     console.log(`🔄 Position side error detected, adjusting order parameters...`);
                     
@@ -307,13 +174,11 @@ export async function sell(params: SellParams): Promise<SellResult> {
                     
                     // 根据实际持仓模式调整参数
                     if (currentPositionMode === "DUAL_SIDE") {
-                        orderParams.positionSide = positionSide;
-                        delete orderParams.reduceOnly;
-                        console.log(`✅ Adjusted to DUAL_SIDE mode with positionSide: ${positionSide}`);
+                        orderParams.positionSide = "SHORT";
+                        console.log(`✅ Adjusted to DUAL_SIDE mode with positionSide: SHORT`);
                     } else {
-                        orderParams.reduceOnly = true;
                         delete orderParams.positionSide;
-                        console.log(`✅ Adjusted to ONE_WAY mode with reduceOnly: true`);
+                        console.log(`✅ Adjusted to ONE_WAY mode without positionSide`);
                     }
                 }
 
@@ -328,10 +193,10 @@ export async function sell(params: SellParams): Promise<SellResult> {
         }
 
         if (!orderResult) {
-            throw lastError || new Error("Failed to create sell order after 3 attempts");
+            throw lastError || new Error("Failed to create short sell order after 3 attempts");
         }
 
-        console.log(`✅ Sell order created successfully:`, orderResult);
+        console.log(`✅ Short sell order created successfully:`, orderResult);
 
         // Extract order details from Binance response
         return {
@@ -341,13 +206,13 @@ export async function sell(params: SellParams): Promise<SellResult> {
             executedAmount: orderResult.executedQty ? parseFloat(orderResult.executedQty) : (orderResult.origQty ? parseFloat(orderResult.origQty) : 0),
         };
     } catch (error: any) {
-        const errorMessage = error?.response?.data?.msg || error.message || "Unknown error occurred during sell";
-        console.error("❌ Sell order failed:", errorMessage);
+        const errorMessage = error?.response?.data?.msg || error.message || "Unknown error occurred during short sell";
+        console.error("❌ Short sell order failed:", errorMessage);
         console.error("📋 Error details:", {
             symbol,
-            percentage,
             amount,
             price,
+            leverage,
             errorType: error.constructor?.name,
             errorCode: error.code,
             responseData: error?.response?.data
@@ -357,4 +222,18 @@ export async function sell(params: SellParams): Promise<SellResult> {
             error: errorMessage,
         };
     }
+}
+
+/**
+ * 便捷函数：市价开空仓
+ */
+export async function shortSellMarket(symbol: string, amount: number, leverage?: number): Promise<SellResult> {
+    return sell({ symbol, amount, leverage });
+}
+
+/**
+ * 便捷函数：限价开空仓
+ */
+export async function shortSellLimit(symbol: string, amount: number, price: number, leverage?: number): Promise<SellResult> {
+    return sell({ symbol, amount, price, leverage });
 }
