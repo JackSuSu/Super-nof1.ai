@@ -348,45 +348,29 @@ export async function getCurrentMarketState(
  * Format market state as a human-readable string
  */
 export function formatMarketState(symbol: string, state: MarketState): string {
-  // Format K-line data
-  const formatKlines = (klines: KlineData[], label: string) => {
-    const lines = klines.map((k, i) => {
-      const trendEmoji = k.trend === "bullish" ? "📈" : "📉";
-      const trendText = k.trend === "bullish" ? "Bullish" : "Bearish";
-      return `  Candle ${i + 1}: ${trendEmoji} ${trendText} | O:${k.open.toFixed(2)} H:${k.high.toFixed(2)} L:${k.low.toFixed(2)} C:${k.close.toFixed(2)} | Change: ${k.change_percent >= 0 ? "+" : ""}${k.change_percent.toFixed(2)}% | Vol: ${k.volume.toFixed(0)}`;
-    });
-    return `\n${label} Candlestick Data (Latest 10 candles, oldest �?newest):\n${lines.join("\n")}`;
-  };
 
-  return `## ALL ${symbol} DATA
+  return `
+  
+### ALL ${symbol} DATA
 
-I. Real-time Indicators
-current_price: ${state.current_price}
-current_ema20: ${state.current_ema20.toFixed(3)}
-current_macd: ${state.current_macd.toFixed(3)}
-current_rsi (7 period): ${state.current_rsi.toFixed(3)}
-Open Interest (Latest): ${state.open_interest.latest.toFixed(2)}
-Open Interest (Average): ${state.open_interest.average.toFixed(2)}
+current_price = ${state.current_price},current_ema20 = ${state.current_ema20.toFixed(3)},
+current_macd = ${state.current_macd.toFixed(3)},current_rsi (7 period) = ${state.current_rsi.toFixed(3)}
+In addition, here is the latest ${symbol} open interest and funding rate for perps (the instrument you are trading):
+Open Interest Latest: ${state.open_interest.latest.toFixed(2)},Open Interest Average: ${state.open_interest.average.toFixed(2)}
 Funding Rate: ${state.funding_rate.toExponential(2)}
 
-II. Intraday Series Indicators (3-minute intervals, oldest �?newest)
+**Intraday series (by minute, oldest → latest):**
 Mid prices: [${state.intraday.mid_prices.map((v) => v.toFixed(1)).join(", ")}]
 EMA indicators (20-period): [${state.intraday.ema_20.map((v) => v.toFixed(3)).join(", ")}]
 MACD indicators: [${state.intraday.macd.map((v) => v.toFixed(3)).join(", ")}]
 RSI indicators (7-Period): [${state.intraday.rsi_7.map((v) => v.toFixed(3)).join(", ")}]
 RSI indicators (14-Period): [${state.intraday.rsi_14.map((v) => v.toFixed(3)).join(", ")}]
 
-III. Longer-term Context Indicators (4-hour timeframe)
-20-Period EMA: ${state.longer_term.ema_20.toFixed(3)}
-50-Period EMA: ${state.longer_term.ema_50.toFixed(3)}
-3-Period ATR: ${state.longer_term.atr_3.toFixed(3)}
-14-Period ATR: ${state.longer_term.atr_14.toFixed(3)}
-Current Volume: ${state.longer_term.current_volume.toFixed(3)}
-Average Volume: ${state.longer_term.average_volume.toFixed(3)}
+**Longer‑term context (4‑hour timeframe):**
+20-Period EMA: ${state.longer_term.ema_20.toFixed(3)} vs. 50-Period EMA: ${state.longer_term.ema_50.toFixed(3)}
+3-Period ATR: ${state.longer_term.atr_3.toFixed(3)} vs. 14-Period ATR: ${state.longer_term.atr_14.toFixed(3)}
+Current Volume: ${state.longer_term.current_volume.toFixed(3)} vs. Average Volume: ${state.longer_term.average_volume.toFixed(3)}
 MACD indicators: [${state.longer_term.macd.map((v) => v.toFixed(3)).join(", ")}]
 RSI indicators (14-Period): [${state.longer_term.rsi_14.map((v) => v.toFixed(3)).join(", ")}]
-${formatKlines(state.kline_data.minute_1, "1-Minute")}
-${formatKlines(state.kline_data.minute_15, "15-Minute")}
-${formatKlines(state.kline_data.hour_4, "4-Hour")}
-`.trim();
+---`.trim();
 }

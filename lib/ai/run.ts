@@ -8,7 +8,6 @@ import { getAccountInformationAndPerformance } from "../trading/account-informat
 import { prisma } from "../prisma";
 import { Opeartion, Symbol } from "@prisma/client";
 import { buy } from "../trading/buy";
-import { sell } from "../trading/sell";
 import {
   getRiskConfig,
   checkBuyRisk,
@@ -16,6 +15,8 @@ import {
   logTrade,
 } from "../trading/risk-control";
 import { setStopLossTakeProfit } from "../trading/stop-loss-take-profit-official";
+import { buyShort } from "../trading/sell";
+import { closePosition } from "../trading/close_position";
 
 /**
  * you can interval trading using cron job
@@ -73,6 +74,8 @@ export async function run(initialCapital?: number) {
     const accountInformationAndPerformance =
       await getAccountInformationAndPerformance(effectiveInitialCapital);
 
+    const invocationCount = await prisma.chat.count();
+
     // Generate comprehensive prompt with all market data (now async to include learning feedback)
     const userPrompt = await generateUserPrompt({
       marketStates: validMarketStates,
@@ -92,100 +95,69 @@ export async function run(initialCapital?: number) {
     // Use Chat-only model (deepseek) — avoid R1/v3.1 timeouts and errors
     const currentModel = { name: "Chat", model: deepseek, timeout: 120000 };  // Increased to 120s
     try {
-      const startTime = Date.now();
-      console.log(`🤖 AI ${currentModel.name} (1/1)...`);
+        const startTime = Date.now();
+        console.log(`🤖 AI ${currentModel.name} (1/1)...`);
 
-      const aiCallConfig: any = {
-        model: currentModel.model,
-        system: tradingPrompt,
-        prompt: userPrompt,
-        output: "object",
-        experimental_telemetry: {
-          isEnabled: true,
-          functionId: "trading-decision",
-        },
-        schema: (() => {
-          const decisionSchema = z.object({
-            opeartion: z.nativeEnum(Opeartion),
-            symbol: z.nativeEnum(Symbol).describe("The cryptocurrency symbol to trade (without USDT suffix)"),
-            buy: z
-              .object({
-                pricing: z.number().describe("The pricing of you want to buy in."),
-                amount: z.number(),
-                leverage: z.number().min(1).max(30),
-                stopLossPercent: z.number().optional(),
-                takeProfitPercent: z.number().optional(),
-              })
-              .optional()
-              .describe("If opeartion is buy, generate object"),
-            sell: z
-              .object({
-                percentage: z
-                  .number()
-                  .min(0)
-                  .max(100)
-                  .describe("Percentage of position to sell"),
-              })
-              .optional()
-              .describe("If opeartion is sell, generate object"),
-            adjustProfit: z
-              .object({
-                stopLoss: z.number().optional(),
-                takeProfit: z.number().optional(),
-              })
-              .optional()
-              .describe("If opeartion is hold and you want to adjust the profit, generate object"),
-            prediction: z.object({
-              short_term_trend: z.enum(["bullish", "bearish", "neutral"]).describe("短期趋势预测（1-4小时）"),
-              confidence: z.enum(["high", "medium", "low"]).describe("预测信心等级"),
-              key_levels: z.object({
-                support: z.number().describe("关键支撑位"),
-                resistance: z.number().describe("关键阻力位"),
-              }),
-              analysis: z.string().describe("基于K线形态的简要分析（30-50字）"),
-            }).describe("MANDATORY: 基于K线数据的趋势预测分析"),
-            chat: z.string().describe("Reasoning and analysis for this decision"),
-          });
-          return z.object({
-            decisions: z.array(decisionSchema).min(1).max(5),
-          });
-        })()
-      };
+        const aiCallConfig: any = {
+          model: currentModel.model,
+          system: tradingPrompt,
+          prompt: userPrompt,
+          output: "object",
+          experimental_telemetry: {
+            isEnabled: true,
+            functionId: "trading-decision",
+          },
+          schema: z.object({
+            signal: z.enum(["buy_to_enter", "sell_to_enter", "hold", "close_position"]).describe("Trading signal"),
+            coin: z.enum(["BTC", "ETH", "BNB", "SOL", "DOGE"]).describe("Coin symbol"),
+            quantity: z.number().describe("Quantity to trade (float)"),
+            leverage: z.number().int().min(1).max(20).describe("Leverage (integer 1-20)"),
+            profit_target: z.number().describe("Profit target (float)"),
+            stop_loss: z.number().describe("Stop loss (float)"),
+            invalidation_condition: z.string().describe("String describing invalidation condition"),
+            confidence: z.number().min(0).max(1).describe("Confidence (0-1)"),
+            risk_usd: z.number().describe("Risk in USD (float)"),
+            justification: z.string().describe("Human-readable justification for the signal"),
+          })
+        };
 
-      // For native DeepSeek add mode=json
-      aiCallConfig.mode = "json";
+        // For native DeepSeek add mode=json
+        aiCallConfig.mode = "json";
+        
+        const aiCallPromise = generateObject(aiCallConfig);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`AI call timeout after ${currentModel.timeout / 1000}s`)), currentModel.timeout);
+        });
 
-      
-      const aiCallPromise = generateObject(aiCallConfig);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`AI call timeout after ${currentModel.timeout / 1000}s`)), currentModel.timeout);
-      });
+        const result = await Promise.race([aiCallPromise, timeoutPromise]) as {
+          object: any;
+          reasoning?: any;
+          experimental_providerMetadata?: any;
+        };
 
-      const result = await Promise.race([aiCallPromise, timeoutPromise]) as {
-        object: any;
-        reasoning?: any;
-        experimental_providerMetadata?: any;
-      };
+        console.log("🕒 AI call completed",result);
 
-      const duration = Date.now() - startTime;
-      console.log(`✅ Response: ${duration}ms`);
-      object = result.object;
+        const duration = Date.now() - startTime;
+        console.log(`✅ Response: ${duration}ms`);
+        
+        // 将单个对象包装成数组以保持向后兼容
+        const singleDecision = result.object;
+        object = { decisions: [singleDecision] }; // 包装成数组格式
 
-      if (result.reasoning) {
-        reasoning = typeof result.reasoning === 'string' ? result.reasoning : JSON.stringify(result.reasoning);
-      } else if (result.experimental_providerMetadata?.deepseek?.reasoning) {
-        reasoning = result.experimental_providerMetadata.deepseek.reasoning;
-      } else if (object?.reasoning) {
-        reasoning = typeof object.reasoning === 'string' ? object.reasoning : JSON.stringify(object.reasoning);
-      } else {
-        reasoning = object?.decisions?.map((d: any) => `[${d.symbol}] ${d.chat}`).join('\n') || "";
+        // 处理 reasoning
+        if (result.reasoning) {
+          reasoning = typeof result.reasoning === 'string' ? result.reasoning : JSON.stringify(result.reasoning);
+        } else if (result.experimental_providerMetadata?.deepseek?.reasoning) {
+          reasoning = result.experimental_providerMetadata.deepseek.reasoning;
+        } else {
+          reasoning = singleDecision.justification || "";
+        }
+
+        aiCallSuccess = true;
+      } catch (error: any) {
+        console.error(`❌ AI ${currentModel.name} failed:`, error?.message || error);
+        throw new Error(`AI failed: ${error?.message || error}`);
       }
-
-      aiCallSuccess = true;
-    } catch (error: any) {
-      console.error(`❌ AI ${currentModel.name} failed:`, error?.message || error);
-      throw new Error(`AI failed: ${error?.message || error}`);
-    }
 
     if (!aiCallSuccess || !object) {
       throw new Error("AI failed to generate valid response");
@@ -200,6 +172,123 @@ export async function run(initialCapital?: number) {
     } else {
       throw new Error("AI response missing 'decisions' array");
     }
+
+
+    console.log(`🔍 Processing ${decisions.length} decision(s)...`);
+
+
+    console.log("🔄 Mapping new schema to legacy format...",decisions);
+
+
+     // Map new schema (signal/coin/quantity/...) to legacy fields used below
+
+    decisions = decisions.map((d: any) => {
+
+      if (!d) return d;
+
+      // 如果已经是旧格式，直接返回
+
+      if (d.opeartion && d.symbol) return d;
+
+      const opMap: any = {
+
+        buy_to_enter: Opeartion.Buy,
+
+        sell_to_enter: Opeartion.Sell,
+
+        hold: Opeartion.Hold,
+
+        // Prisma enum doesn't include "Close"; map close_position to Sell (close/exit position)
+
+        close_position: Opeartion.Close,
+
+      };
+
+      const mapped: any = {
+
+        ...d,
+
+        opeartion: opMap[d.signal] || Opeartion.Hold,
+
+        symbol: d.coin, // 之后会用 `${symbol}/USDT`
+
+        chat: d.justification || d.chat || undefined,
+
+      };
+
+      // 为后续 buy 分支提供结构
+
+      if (d.signal === "buy_to_enter") {
+
+        mapped.buy = {
+
+          amount: d.quantity,
+
+          pricing: d.pricing ?? null,
+
+          leverage: d.leverage ?? null,
+
+          stopLossPercent: d.stop_loss ?? null,
+
+          takeProfitPercent: d.profit_target ?? null,
+
+        };
+
+      }
+
+      // 为后续 sell  分支提供结构
+
+      if (d.signal === "sell_to_enter") {
+
+        // sell_to_enter 表示做空/卖出进入（与 buy 对称）
+
+        mapped.sell = {
+
+          amount: d.quantity,
+
+          pricing: d.pricing ?? null,
+
+          leverage: d.leverage ?? null,
+
+          stopLossPercent: d.stop_loss ?? null,
+
+          takeProfitPercent: d.profit_target ?? null,
+
+        };
+
+      }
+
+
+      // 为后续 close 分支提供结构（默认全部平仓）
+
+      if (d.signal === "close_position") {
+
+        mapped.sell = {
+
+          percentage: (d.sell_percentage ?? d.percentage ?? 100),
+
+        };
+
+      }
+
+      // hold 的 SL/TP 调整
+
+      if (d.signal === "hold") {
+
+        mapped.adjustProfit = {};
+
+        if (d.stop_loss != null) mapped.adjustProfit.stopLoss = d.stop_loss;
+
+        if (d.profit_target != null) mapped.adjustProfit.takeProfit = d.profit_target;
+
+        if (Object.keys(mapped.adjustProfit).length === 0) delete mapped.adjustProfit;
+
+      }
+
+      return mapped;
+
+    });
+
 
     console.log(`📋 ${decisions.length} decision(s)`);
 
@@ -249,7 +338,7 @@ export async function run(initialCapital?: number) {
       }
 
       if (object.opeartion === Opeartion.Buy) {
-        if (!object.buy || object.buy.pricing == null || object.buy.amount == null || object.buy.leverage == null) {
+        if (!object.buy || object.buy.amount == null || object.buy.leverage == null) {
           console.warn("⚠️ Buy: missing required fields");
           // 记录失败的决策
           allTradingRecords.push(createTradingData(object, {
@@ -340,8 +429,8 @@ export async function run(initialCapital?: number) {
       }
 
       if (object.opeartion === Opeartion.Sell) {
-        if (!object.sell || object.sell.percentage == null) {
-          console.warn("⚠️ Sell: missing percentage");
+        if (!object.sell || object.sell.amount == null || object.sell.pricing == null || object.sell.leverage == null ) {
+          console.warn("⚠️ Sell: missing amount, pricing, or leverage");
           // 记录失败的决策
           allTradingRecords.push(createTradingData(object, { opeartion: Opeartion.Hold }));
           continue;
@@ -367,9 +456,11 @@ export async function run(initialCapital?: number) {
 
         // 🔧 修复：dry-run模式下也要真正执行卖出（在测试网）
         console.log(`💸 Executing sell ${object.symbol} (${object.sell.percentage}%) (Mode: ${riskConfig.tradingMode})...`);
-        sellResult = await sell({
+        sellResult = await buyShort({
           symbol: tradingSymbol,
-          percentage: object.sell.percentage,
+          amount: object.sell.amount,
+          price: object.sell.pricing,
+          leverage: object.sell.leverage,
         });
 
         if (sellResult.success) {
@@ -438,7 +529,57 @@ export async function run(initialCapital?: number) {
         }));
         continue;
       }
+
+      if (object.opeartion === Opeartion.Close) {
+
+        if (!object.sell || object.sell.percentage == null) {
+
+          console.warn("⚠️ Close: missing percentage");
+
+          // 记录失败的决策
+
+          allTradingRecords.push(createTradingData(object, { opeartion: Opeartion.Hold }));
+
+          continue;
+
+        }
+
+        // Execute or simulate close position
+
+        const tradingSymbol = `${object.symbol}/USDT`;
+
+        console.log(`🛑 Closing position ${object.symbol} (${object.sell.percentage}%) (Mode: ${riskConfig.tradingMode})...`)
+
+        const closeResult = await closePosition({
+
+          symbol: tradingSymbol,
+
+          percentage: object.sell.percentage,
+
+        });
+
+        if (closeResult.success) {
+
+          console.log(`✅ Position closed successfully`);
+
+          console.log(`   Order ID: ${closeResult.orderId}`);
+
+          console.log(`   Price: $${closeResult.executedPrice}`);
+
+          console.log(`   Amount: ${closeResult.executedAmount}`);
+
+        }
+
+
+
+      }
+
     }
+
+
+
+
+
 
     // 🔧 循环结束后，统一创建一条 chat 记录，包含所有交易
     const combinedChat = allChatMessages.length > 0

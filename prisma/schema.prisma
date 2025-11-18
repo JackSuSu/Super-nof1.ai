@@ -90,6 +90,7 @@ enum Opeartion {
   Buy
   Sell
   Hold
+  Close
 }
 
 enum Symbol {

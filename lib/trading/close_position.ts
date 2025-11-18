@@ -116,7 +116,7 @@ function smartAdjustSellAmount(amount: number, symbol: string, positionSize: num
  * @param params Sell order parameters
  * @returns Sell result with order details or error
  */
-export async function sell(params: SellParams): Promise<SellResult> {
+export async function closePosition(params: SellParams): Promise<SellResult> {
     const { symbol, percentage = 100, amount, price } = params;
 
     // Validate parameters
