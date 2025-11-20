@@ -65,13 +65,13 @@ function smartAdjustSellAmount(amount: number, symbol: string, positionSize: num
     
     // 如果调整后为0或小于最小交易量
     if (adjustedAmount === 0 || adjustedAmount < minAmount) {
-        console.log(`⚠️ Sell amount ${amount} too small (min: ${minAmount}, position: ${positionSize})`);
+        console.log(`⚠️ Close amount ${amount} too small (min: ${minAmount}, position: ${positionSize})`);
         
         // 方案1: 如果持仓数量大于最小交易量，卖出最小交易量
         if (positionSize >= minAmount) {
             adjustedAmount = minAmount;
             const sellPercentage = (adjustedAmount / positionSize) * 100;
-            console.log(`✅ Adjusting to minimum sell amount: ${adjustedAmount} (${sellPercentage.toFixed(1)}% of position)`);
+            console.log(`✅ Adjusting to minimum Close amount: ${adjustedAmount} (${sellPercentage.toFixed(1)}% of position)`);
             return {
                 adjustedAmount,
                 adjustmentType: 'min',
@@ -85,11 +85,11 @@ function smartAdjustSellAmount(amount: number, symbol: string, positionSize: num
             if (adjustedAmount === 0) {
                 adjustedAmount = positionSize; // 直接使用原始持仓数量
             }
-            console.log(`✅ Selling entire position: ${adjustedAmount} (position below minimum trade size)`);
+            console.log(`✅ Close entire position: ${adjustedAmount} (position below minimum trade size)`);
             return {
                 adjustedAmount,
                 adjustmentType: 'all',
-                reason: `Selling entire position as it's below minimum trade size`
+                reason: `Close entire position as it's below minimum trade size`
             };
         }
     }
@@ -97,7 +97,7 @@ function smartAdjustSellAmount(amount: number, symbol: string, positionSize: num
     // 确保卖出数量不超过持仓数量
     if (adjustedAmount > positionSize) {
         adjustedAmount = adjustPrecision(positionSize, binanceSymbol);
-        console.log(`✅ Adjusting sell amount to position size: ${adjustedAmount}`);
+        console.log(`✅ Adjusting Close amount to position size: ${adjustedAmount}`);
         return {
             adjustedAmount,
             adjustmentType: 'percentage',
@@ -121,13 +121,13 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
 
     // Validate parameters
     if (!symbol || !symbol.includes("/")) {
-        return { success: false, error: "Invalid symbol format. Use 'BTC/USDT'" };
+        return { success: false, error: "Close Position: Invalid symbol format. Use 'BTC/USDT'" };
     }
 
     if (percentage <= 0 || percentage > 100) {
         return {
             success: false,
-            error: "Percentage must be between 0 and 100",
+            error: "Close Position: Percentage must be between 0 and 100",
         };
     }
 
@@ -148,16 +148,16 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
         if (!sellAmount) {
             // Fetch current position
             try {
-                console.log(`🔍 Fetching position for ${symbol}...`);
+                console.log(`🔍 Close Position: Fetching position for ${symbol}...`);
                 const positions = await fetchPositions();
                 console.log(`✅ Found ${positions.length} total positions`);
 
                 // 过滤出活跃持仓
                 const activePositions = positions.filter(p => p.contracts !== 0);
-                console.log(`📊 Active positions: ${activePositions.length}`);
+                console.log(`📊 Close Position: Active positions: ${activePositions.length}`);
 
                 if (activePositions.length > 0) {
-                    console.log(`📋 Active positions list:`);
+                    console.log(`📋 Close Position: Active positions list:`);
                     activePositions.forEach(p => {
                         console.log(`   - ${p.symbol}: ${p.contracts > 0 ? 'LONG' : 'SHORT'} ${Math.abs(p.contracts)} @ $${p.entryPrice}`);
                     });
@@ -167,11 +167,11 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
                 const position = positions.find((p) => p.symbol === binanceSymbol && p.contracts !== 0);
 
                 if (!position || !position.contracts || position.contracts === 0) {
-                    console.warn(`⚠️ No open position found for ${symbol}`);
-                    console.warn(`   Available positions: ${activePositions.map(p => p.symbol).join(', ') || 'None'}`);
+                    console.warn(`⚠️ Close Position: No open position found for ${symbol}`);
+                    console.warn(`   Close Position: Available positions: ${activePositions.map(p => p.symbol).join(', ') || 'None'}`);
                     return {
                         success: false,
-                        error: `No open position found for ${symbol}. Available: ${activePositions.map(p => p.symbol).join(', ') || 'None'}`,
+                        error: `Close Position: No open position found for ${symbol}. Available: ${activePositions.map(p => p.symbol).join(', ') || 'None'}`,
                     };
                 }
 
@@ -186,35 +186,35 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
 
                 // 确定持仓方向
                 positionSide = position.side === "long" ? "LONG" : "SHORT";
-                console.log(`📍 Position side: ${positionSide}`);
+                console.log(`📍 Close Position: Position side: ${positionSide}`);
 
                 // Calculate sell amount based on percentage
                 positionSize = Math.abs(position.contracts); // 记录持仓数量
                 sellAmount = positionSize * (percentage / 100);
-                console.log(`💰 Calculated sell amount: ${sellAmount} (${percentage}% of ${positionSize})`);
+                console.log(`💰 Close Position: Calculated Close amount: ${sellAmount} (${percentage}% of ${positionSize})`);
                 
                 // 🛠️ 关键修复：应用智能调整
                 const adjustment = smartAdjustSellAmount(sellAmount, symbol, positionSize);
                 sellAmount = adjustment.adjustedAmount;
                 
                 if (adjustment.adjustmentType !== 'none') {
-                    console.log(`📝 Sell adjustment type: ${adjustment.adjustmentType}`);
+                    console.log(`📝 Close Position: Close adjustment type: ${adjustment.adjustmentType}`);
                     if (adjustment.reason) {
-                        console.log(`📋 Adjustment reason: ${adjustment.reason}`);
+                        console.log(`📋 Close Position: Adjustment reason: ${adjustment.reason}`);
                     }
                 }
                 
             } catch (positionError: any) {
-                console.error("❌ Failed to fetch positions:", positionError.message);
+                console.error("❌ Close Position: Failed to fetch positions:", positionError.message);
                 return {
                     success: false,
-                    error: `Failed to fetch position for ${symbol}: ${positionError.message}`,
+                    error: `Close Position: Failed to fetch position for ${symbol}: ${positionError.message}`,
                 };
             }
         }
 
         if (sellAmount <= 0) {
-            return { success: false, error: "Sell amount must be greater than 0" };
+            return { success: false, error: "Close Position: Close amount must be greater than 0" };
         }
 
         // 🛠️ 最终精度调整（使用修复后的函数）
@@ -232,12 +232,12 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
         // 🛠️ 确保卖出数量不超过持仓数量
         let finalSellAmount = adjustedAmount;
         if (positionSize > 0 && finalSellAmount > positionSize) {
-            console.warn(`⚠️ Sell amount ${finalSellAmount} exceeds position size ${positionSize}, adjusting...`);
+            console.warn(`⚠️Close Position: Close amount ${finalSellAmount} exceeds position size ${positionSize}, adjusting...`);
             finalSellAmount = adjustPrecision(positionSize, binanceSymbol);
-            console.log(`✅ Adjusted sell amount to: ${finalSellAmount}`);
+            console.log(`✅Close Position: Adjusted Close amount to: ${finalSellAmount}`);
         }
 
-        console.log(`✅ Final sell amount: ${finalSellAmount} ${symbol}`);
+        console.log(`✅Close Position: Final Close amount: ${finalSellAmount} ${symbol}`);
 
         // Get position mode to determine if we need positionSide parameter
         const positionMode = await getPositionMode();
@@ -254,11 +254,11 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
         // 双向持仓模式下必须设置 positionSide
         if (positionMode === "DUAL_SIDE") {
             orderParams.positionSide = positionSide;
-            console.log(`📍 Using DUAL_SIDE mode with positionSide: ${positionSide}`);
+            console.log(`📍Close Position: Using DUAL_SIDE mode with positionSide: ${positionSide}`);
         } else {
             // 单向持仓模式下使用 reduceOnly
             orderParams.reduceOnly = true;
-            console.log(`📍 Using ONE_WAY mode with reduceOnly: true`);
+            console.log(`📍 Close Position: Using ONE_WAY mode with reduceOnly: true`);
         }
 
         if (price) {
@@ -266,7 +266,7 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
             orderParams.timeInForce = "GTC"; // Good Till Cancelled
         }
 
-        console.log(`📝 Creating ${orderType} sell order: ${finalSellAmount} ${symbol} at ${price || 'market price'}`);
+        console.log(`📝Close Position: Creating ${orderType} sell order: ${finalSellAmount} ${symbol} at ${price || 'market price'}`);
 
         let orderResult;
         let lastError;
@@ -274,7 +274,7 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
         // Retry up to 3 times
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-                console.log(`🔄 Sell order attempt ${attempt}/3...`);
+                console.log(`🔄Close Position:  Close order attempt ${attempt}/3...`);
 
                 // Binance SDK requires: newOrder(symbol, side, type, options)
                 const response = await (client as any).newOrder(
@@ -286,12 +286,12 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
 
                 // Response is an axios response with data property
                 orderResult = response.data;
-                console.log(`✅ Sell order created successfully on attempt ${attempt}`);
+                console.log(`✅ Close Position: Close order created successfully on attempt ${attempt}`);
                 break; // Success, exit loop
             } catch (orderError: any) {
                 lastError = orderError;
                 const errorMsg = orderError?.response?.data?.msg || orderError.message;
-                console.warn(`⚠️ Sell order attempt ${attempt} failed: ${errorMsg}`);
+                console.warn(`⚠️ Close Position: Close order attempt ${attempt} failed: ${errorMsg}`);
 
                 // 🛠️ 如果是持仓方向错误，尝试调整参数
                 if (errorMsg.includes("position side does not match") && attempt === 1) {
@@ -303,17 +303,17 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
                     const dualSidePosition = positionModeResponse.data?.dualSidePosition ?? positionModeResponse?.dualSidePosition ?? false;
                     const currentPositionMode = dualSidePosition ? "DUAL_SIDE" : "ONE_WAY";
                     
-                    console.log(`🔄 Current position mode: ${currentPositionMode}`);
+                    console.log(`🔄Close Position:  Current position mode: ${currentPositionMode}`);
                     
                     // 根据实际持仓模式调整参数
                     if (currentPositionMode === "DUAL_SIDE") {
                         orderParams.positionSide = positionSide;
                         delete orderParams.reduceOnly;
-                        console.log(`✅ Adjusted to DUAL_SIDE mode with positionSide: ${positionSide}`);
+                        console.log(`✅Close Position:  Adjusted to DUAL_SIDE mode with positionSide: ${positionSide}`);
                     } else {
                         orderParams.reduceOnly = true;
                         delete orderParams.positionSide;
-                        console.log(`✅ Adjusted to ONE_WAY mode with reduceOnly: true`);
+                        console.log(`✅Close Position:  Adjusted to ONE_WAY mode with reduceOnly: true`);
                     }
                 }
 
@@ -328,10 +328,10 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
         }
 
         if (!orderResult) {
-            throw lastError || new Error("Failed to create sell order after 3 attempts");
+            throw lastError || new Error("Failed to create Close order after 3 attempts");
         }
 
-        console.log(`✅ Sell order created successfully:`, orderResult);
+        console.log(`✅ Close Position: Close order created successfully:`, orderResult);
 
         // Extract order details from Binance response
         return {
@@ -341,9 +341,9 @@ export async function closePosition(params: SellParams): Promise<SellResult> {
             executedAmount: orderResult.executedQty ? parseFloat(orderResult.executedQty) : (orderResult.origQty ? parseFloat(orderResult.origQty) : 0),
         };
     } catch (error: any) {
-        const errorMessage = error?.response?.data?.msg || error.message || "Unknown error occurred during sell";
-        console.error("❌ Sell order failed:", errorMessage);
-        console.error("📋 Error details:", {
+        const errorMessage = error?.response?.data?.msg || error.message || "Unknown error occurred during Close";
+        console.error("❌ Close Position: Close order failed:", errorMessage);
+        console.error("📋 Close Position: Error details:", {
             symbol,
             percentage,
             amount,
