@@ -91,6 +91,8 @@ enum Opeartion {
   Sell
   Hold
   Close
+  Failed
+  StopLoss
 }
 
 enum Symbol {

@@ -171,7 +171,7 @@ async function fetchAccountInfo() {
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      console.log(`🔄 Fetching account info (attempt ${attempt}/3) from Binance Futures`);
+      console.log(`💰  Fetching account info (attempt ${attempt}/3) from Binance Futures`);
       const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {

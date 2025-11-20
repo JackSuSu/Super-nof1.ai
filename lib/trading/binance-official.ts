@@ -53,7 +53,7 @@ async function syncServerTime(client: UMFutures): Promise<void> {
             // 如果配置了代理，使用 ProxyAgent
             if (useProxy && envProxy) {
                 fetchOptions.dispatcher = new ProxyAgent(envProxy);
-                console.log(`🔄 Time sync attempt ${attempt}/3 via proxy: ${envProxy}`);
+                // console.log(`🔄 Time sync attempt ${attempt}/3 via proxy: ${envProxy}`);
             } else {
                 console.log(`🔄 Time sync attempt ${attempt}/3 (direct connection)`);
             }
@@ -67,7 +67,7 @@ async function syncServerTime(client: UMFutures): Promise<void> {
             if (response.ok) {
                 const data = await response.json() as { serverTime: number };
                 serverTimeOffset = Math.floor(data.serverTime - (Date.now() + latency / 2));
-                console.log(`⏰ Server time synced on attempt ${attempt}. Offset: ${serverTimeOffset}ms, Latency: ${latency}ms`);
+                // console.log(`⏰ Server time synced on attempt ${attempt}. Offset: ${serverTimeOffset}ms, Latency: ${latency}ms`);
                 return; // ✅ 成功，退出重试循环
             } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -206,7 +206,7 @@ export function getBinanceInstance(): Promise<UMFutures> {
                         await binanceClient.ping();
                         const duration = Date.now() - startTime;
 
-                        console.log(`✅ Connection successful in ${duration}ms`);
+                        // console.log(`✅ Connection successful in ${duration}ms`);
 
                         // 同步服务器时间
                         await syncServerTime(binanceClient);

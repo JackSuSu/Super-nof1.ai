@@ -293,11 +293,11 @@ Today is ${new Date().toISOString()}
 interface UserPromptOptions {
   marketStates: Array<{
     symbol: string;
-    state: MarketState;
-    invocationCount?: number;
+    state: MarketState;    
   }>;
   accountInformationAndPerformance: AccountInformationAndPerformance;
   startTime: Date;
+  invocationCount?: number;
 }
 
 export async function generateUserPrompt(options: UserPromptOptions): Promise<string> {
@@ -315,24 +315,24 @@ export async function generateUserPrompt(options: UserPromptOptions): Promise<st
 
   return `
   
-  It has been ${dayjs(new Date()).diff(
+It has been ${dayjs(new Date()).diff(
       startTime,
       "minute"
     )} minutes since you started trading. The current time is ${new Date().toISOString()} and you've been invoked ${invocationCount} times. Below, we are providing you with a variety of state data, price data, and predictive signals so you can discover alpha. Below that is your current account information, value, performance, positions, etc.
   
-  ⚠️ **ALL PRICE AND INDICATOR DATA IS ORDERED: OLDEST → NEWEST**
+⚠️ **ALL PRICE AND INDICATOR DATA IS ORDERED: OLDEST → NEWEST**
   
-  **Timeframes note:** Unless stated otherwise in a section title, intraday series are provided at **3-minute intervals**. If a coin uses a different interval, it is explicitly stated in that coin's section.
+**Timeframes note:** Unless stated otherwise in a section title, intraday series are provided at **3-minute intervals**. If a coin uses a different interval, it is explicitly stated in that coin's section.
   
-  ---
-  
-  ## CURRENT MARKET STATE FOR ALL COINS
+---
 
-  ${marketDataSections}
+## CURRENT MARKET STATE FOR ALL COINS
 
-  ## HERE IS YOUR ACCOUNT INFORMATION & PERFORMANCE
+${marketDataSections}
 
-  ${accountInfo}
+## HERE IS YOUR ACCOUNT INFORMATION & PERFORMANCE
+
+${accountInfo}
 
 `; 
 
