@@ -107,7 +107,7 @@ export function ModelsView() {
   // 只获取 Buy 和 Sell 操作的交易
   const completedTrades = chats.flatMap((chat) =>
     chat.tradings
-      .filter((t) => t.opeartion === "Buy" || t.opeartion === "Sell")
+      .filter((t) => t.opeartion === "Buy" || t.opeartion === "Sell" || t.opeartion === "Hold" || t.opeartion === "Close")
       .map((t) => ({ ...t, chatId: chat.id, model: chat.model }))
   );
 
@@ -119,6 +119,8 @@ export function ModelsView() {
         return <TrendingDown className="h-4 w-4 text-red-500" />;
       case "Hold":
         return <Minus className="h-4 w-4 text-yellow-500" />;
+      case "Close":
+        return <Minus className="h-4 w-4 text-gray-500" />;
       default:
         return null;
     }
@@ -178,7 +180,7 @@ export function ModelsView() {
 
           return (
             <Card key={`${trade.id}-${idx}`} className="overflow-hidden border-l-4" style={{
-              borderLeftColor: trade.opeartion === "Buy" ? "#10b981" : trade.opeartion === "Sell" ? "#ef4444" : "#eab308"
+              borderLeftColor: trade.opeartion === "Buy" ? "#10b981" : trade.opeartion === "Sell" ? "#ef4444" : trade.opeartion === "Hold" ? "#eab308" : trade.opeartion === "Close" ? "#6b7280" : "#6b7280"  
             }}>
               <CardContent className="p-3">
                 {/* Header with operation */}
