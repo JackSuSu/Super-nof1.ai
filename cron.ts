@@ -77,7 +77,7 @@ const runChatInterval = async () => {
 
 // every 3 minutes - optimized for active trading
 cron.schedule("*/3 * * * *", async () => {
-  await runChatInterval();
+  // await runChatInterval();
 });
 
 await runChatInterval();

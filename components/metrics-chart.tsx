@@ -533,7 +533,7 @@ export function MetricsChart({
 
             <ChartContainer
               config={chartConfig}
-              className="aspect-auto h-[450px] w-full"
+              className="aspect-auto h-[300px] sm:h-[450px] w-full"
             >
               <ComposedChart
                 accessibilityLayer
@@ -693,8 +693,8 @@ export function MetricsChart({
                             <span className="text-xs font-semibold text-muted-foreground">Change</span>
                             <span
                               className={`text-sm font-black font-mono ${relativeReturn >= 0
-                                  ? "bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent"
-                                  : "bg-gradient-to-r from-red-500 to-rose-600 bg-clip-text text-transparent"
+                                ? "bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent"
+                                : "bg-gradient-to-r from-red-500 to-rose-600 bg-clip-text text-transparent"
                                 }`}
                             >
                               {relativeReturn >= 0 ? "+" : ""}{relativeReturn.toFixed(3)}%

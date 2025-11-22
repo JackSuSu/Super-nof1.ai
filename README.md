@@ -50,6 +50,25 @@ Trading logic: Real-time market data is retrieved from the official API. The Dee
 - **API Key Encryption**: Sensitive Information Environment Variable Management
 - **Proxy Support:** Supports accessing the Binance API via a proxy.
 
+## Project Structure
+
+```
+.
+├── app/                    # Next.js App Router main directory
+│   ├── api/                # API routes (including cron jobs)
+│   └── ...                 # Page layouts and views
+├── components/             # React UI components
+│   ├── ui/                 # Basic UI components
+│   └── ...                 # Feature components (Charts, Trading views)
+├── lib/                    # Core business logic
+│   ├── ai/                 # AI module (DeepSeek integration, prompts)
+│   ├── trading/            # Trading module (Binance interaction, Strategy execution)
+│   └── ...                 # Utilities and types
+├── prisma/                 # Database configuration
+│   └── schema.prisma       # Database schema definition
+└── types/                  # Global type definitions
+```
+
 ---
 
 ## System Requirements
@@ -527,6 +546,25 @@ inspired by alpha arena和open-nof1.ai项目，本项目在open-nof1.ai基础之
 - **实盘模式**：可切换到真实交易
 - **API 密钥加密**：敏感信息环境变量管理
 - **代理支持**：支持通过代理访问币安 API
+
+## 项目结构
+
+```
+.
+├── app/                    # Next.js App Router 主目录
+│   ├── api/                # API 路由 (包含定时任务)
+│   └── ...                 # 页面布局和视图
+├── components/             # React UI 组件
+│   ├── ui/                 # 基础 UI 组件
+│   └── ...                 # 功能组件 (图表, 交易视图)
+├── lib/                    # 核心业务逻辑
+│   ├── ai/                 # AI 模块 (DeepSeek 集成, 提示词)
+│   ├── trading/            # 交易模块 (币安交互, 策略执行)
+│   └── ...                 # 工具函数和类型
+├── prisma/                 # 数据库配置
+│   └── schema.prisma       # 数据库模型定义
+└── types/                  # 全局类型定义
+```
 
 ---
 

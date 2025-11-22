@@ -180,89 +180,89 @@ export function ModelsView() {
 
           return (
             <Card key={`${trade.id}-${idx}`} className="overflow-hidden border-l-4" style={{
-              borderLeftColor: trade.opeartion === "Buy" ? "#10b981" : trade.opeartion === "Sell" ? "#ef4444" : trade.opeartion === "Hold" ? "#eab308" : trade.opeartion === "Close" ? "#6b7280" : "#6b7280"  
+              borderLeftColor: trade.opeartion === "Buy" ? "#10b981" : trade.opeartion === "Sell" ? "#ef4444" : trade.opeartion === "Hold" ? "#eab308" : trade.opeartion === "Close" ? "#6b7280" : "#6b7280"
             }}>
               <CardContent className="p-3">
                 {/* Header with operation */}
                 <div className="flex items-center justify-between mb-1 pb-1 border-b">
                   <div className="flex items-center gap-2">
-                    {renderOperationIcon(trade.opeartion)}                 
+                    {renderOperationIcon(trade.opeartion)}
                     <span className="font-bold text-sm">
                       {trade.symbol}
                     </span>
                     {/* Model badge */}
                     <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">
                       {trade.leverage != null && !isNaN(trade.leverage) && trade.leverage !== 0 ? (
-                          `${trade.leverage}x`
-                        ) : (
-                          <span className="text-muted-foreground">N/A</span>
-                        )}
-                      
+                        `${trade.leverage}x`
+                      ) : (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}
+
                       {/* {trade.model || "Unknown"} */}
                     </span>
                     <span className="text-xs font-bold text-muted-foreground">【
-                        {trade.pricing != null && !isNaN(trade.pricing) && trade.pricing !== 0 ? (
-                              `$${trade.pricing.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 8,
-                              })}`
-                            ) : (
-                              <span className="text-muted-foreground">N/A</span>
-                            )}】
+                      {trade.pricing != null && !isNaN(trade.pricing) && trade.pricing !== 0 ? (
+                        `$${trade.pricing.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 8,
+                        })}`
+                      ) : (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}】
                     </span>
 
 
-                  
+
 
                     <span className="text-xs font-bold text-muted-foreground">【
-                        {trade.amount != null && !isNaN(trade.amount) && trade.amount !== 0 ? (
-                              `$${trade.amount.toLocaleString(undefined, {
-                                minimumFractionDigits: 3,
-                                maximumFractionDigits: 3,
-                              })}`
-                            ) : (
-                              <span className="text-muted-foreground">N/A</span>
-                            )}】
+                      {trade.amount != null && !isNaN(trade.amount) && trade.amount !== 0 ? (
+                        `$${trade.amount.toLocaleString(undefined, {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}`
+                      ) : (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}】
 
                     </span>
 
 
-                       {trade.leverage && trade.leverage > 1 && (                 
+                    {trade.leverage && trade.leverage > 1 && (
 
-                          <div className="font-mono text-xs text-red-600 font-semibold">
-                            【${(totalValue).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}】
-                          </div>
-                   
-                      )}
+                      <div className="font-mono text-xs text-red-600 font-semibold">
+                        【${(totalValue).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}】
+                      </div>
+
+                    )}
 
 
                   </div>
                   <div className="text-xs font-bold text-muted-foreground">【
-                  {new Date(trade.createdAt).getHours().toString().padStart(2, '0')}:
-                  {new Date(trade.createdAt).getMinutes().toString().padStart(2, '0')} 】                
-                </div>
+                    {new Date(trade.createdAt).getHours().toString().padStart(2, '0')}:
+                    {new Date(trade.createdAt).getMinutes().toString().padStart(2, '0')} 】
+                  </div>
                 </div>
 
                 {/* Trade details grid - 优化布局 */}
-                
-       
-                  {/* 第五行：预估费用提示 */}
-                  {hasValidData && trade.leverage && (
-                    
-                    
-                    <div className="pt-2 border-t">
-                      <div className="text-xs text-muted-foreground">
-                        Est. Fee Impact: ~{(trade.leverage * 0.04).toFixed(2)}% (0.04% × {trade.leverage}x leverage)
-                      </div>
-                   
-                     </div>
-                  )}
-               
 
-                
+
+                {/* 第五行：预估费用提示 */}
+                {hasValidData && trade.leverage && (
+
+
+                  <div className="pt-2 border-t">
+                    <div className="text-xs text-muted-foreground">
+                      Est. Fee Impact: ~{(trade.leverage * 0.04).toFixed(2)}% (0.04% × {trade.leverage}x leverage)
+                    </div>
+
+                  </div>
+                )}
+
+
+
               </CardContent>
             </Card>
           );
@@ -312,16 +312,16 @@ export function ModelsView() {
                     </span>
                   </div>
 
-                    <div >
-                      <div
-                        className={`font-mono font-bold text-base ${isProfitable ? "text-green-600" : "text-red-600"
-                          }`}
-                      >
-                        {isProfitable ? "+" : ""}$
-                        {position.unrealizedPnl.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                  <div >
+                    <div
+                      className={`font-mono font-bold text-base ${isProfitable ? "text-green-600" : "text-red-600"
+                        }`}
+                    >
+                      {isProfitable ? "+" : ""}$
+                      {position.unrealizedPnl.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                       <span
                         className={`text-base font-base ${isProfitable ? "text-green-600" : "text-red-600"
                           }`}
@@ -330,16 +330,16 @@ export function ModelsView() {
                         {position.percentage.toFixed(2)}%】
                       </span>
 
-                      </div>
-                     
                     </div>
+
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <span className="text-xs px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-mono font-bold">
                       {position.leverage}x
                     </span>
                   </div>
-                </div>        
+                </div>
               </CardContent>
             </Card>
           );
@@ -393,7 +393,7 @@ export function ModelsView() {
           })();
 
           return (
-            <Card key={chat.id} className="overflow-hidden max-w-[600px]">
+            <Card key={chat.id} className="overflow-hidden w-full">
               {/* Collapsed Header */}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-4 mb-3">

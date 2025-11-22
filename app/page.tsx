@@ -102,7 +102,7 @@ export default function Home() {
 
       <div className="relative max-w-[1600px] mx-auto p-4 md:p-8 space-y-4">
         {/* Premium Header */}
-        
+
 
         {/* Premium Navigation */}
         <div className="flex gap-6 border-b border-border/50">
@@ -167,9 +167,9 @@ export default function Home() {
 
               {process.env.NEXT_PUBLIC_TRADING_MODE === 'dry-run' && (
                 <div className="relative group">
-                 
+
                   <span className="relative inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg">
-                  
+
                     Virtual Mode
                   </span>
                 </div>
@@ -180,7 +180,7 @@ export default function Home() {
         </div>
 
         {/* Main Content - Chart and Models Side by Side */}
-        <div className="flex flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left: Chart */}
           <div className="flex-[2]">
             <MetricsChart
@@ -192,7 +192,7 @@ export default function Home() {
           </div>
 
           {/* Right: Models View */}
-          <div className="flex-1">
+          <div className="flex-1 h-[600px] lg:h-auto">
             <ModelsView />
           </div>
         </div>
