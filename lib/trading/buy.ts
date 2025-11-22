@@ -486,15 +486,15 @@ class BuyOrderExecutor {
  */
 export async function buyLong(params: BuyParams): Promise<BuyResult> {
     console.log(`🎯 Starting buy order process...`);
-    console.log(`📋 Input parameters:`, {
-        symbol: params.symbol,
-        amount: params.amount,
-        leverage: params.leverage,
-        price: params.price,
-        autoSetStopLoss: params.autoSetStopLoss,
-        stopLossPercent: params.stopLossPercent,
-        takeProfitPercent: params.takeProfitPercent
-    });
+    // console.log(`📋 Input parameters:`, {
+    //     symbol: params.symbol,
+    //     amount: params.amount,
+    //     leverage: params.leverage,
+    //     price: params.price,
+    //     autoSetStopLoss: params.autoSetStopLoss,
+    //     stopLossPercent: params.stopLossPercent,
+    //     takeProfitPercent: params.takeProfitPercent
+    // });
 
     // Validate parameters
     if (!params.symbol || !params.symbol.includes("/")) {

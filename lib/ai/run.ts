@@ -115,7 +115,7 @@ class TradingExecutor {
     const userPrompt = await generateUserPrompt({
       marketStates,
       accountInformationAndPerformance: accountInfo,
-      startTime: new Date(),
+      startTime: new Date(process.env.START_TIME || '2025-11-22T06:21:00Z'),
       invocationCount: chatCount,
     });
 
@@ -159,7 +159,8 @@ class TradingExecutor {
     // Map to legacy format
     const decisions = this.mapAIDecisionsToLegacyFormat([result.object]);
 
-    console.log("🔄 Mapped decisions to legacy format:", decisions);
+    console.log(`🔄 Mapped decisions to legacy format action:【${ decisions[0]?.signal}】`);
+    console.log(`🔄 Mapped decisions to legacy format justification:【${ decisions[0]?.justification}】`);
 
     return { decisions, justification: result?.object?.justification ?? "no reason provided", userPrompt };
   }
@@ -168,7 +169,7 @@ class TradingExecutor {
 
   //转化映射
   private mapAIDecisionsToLegacyFormat(decisions: any[]) {
-    console.log("🔄 Mapping new schema to legacy format...", decisions);
+    console.log("🔄 Mapping new schema to legacy format...");
 
     return decisions.map((d: any) => {
       if (!d) return d;
@@ -230,8 +231,7 @@ class TradingExecutor {
       return mapped;
     });
   }
-
-
+  
 
 
   private async processTradingDecisions(aiDecision: any, accountInfo: any) {
@@ -268,12 +268,17 @@ class TradingExecutor {
           console.warn(`⚠️ Unknown operation: ${decision.opeartion}`);
          
       }
+
+      console.log(`✅ Processed ${decision.opeartion} for ${decision.symbol}`);
+
+      this.recordTradingData(decision);
+
     } catch (error) {
       console.error(`❌ Error processing ${decision.opeartion} for ${decision.symbol}:`, error);
       this.recordFailedDecision(decision);
     }
 
-     this.recordTradingData(decision);
+     
   }
 
   private async processBuyLongDecision(decision: any) {
@@ -327,11 +332,16 @@ class TradingExecutor {
       takeProfitPercent: decision.takeProfitPercent,
     });
 
-    this.logTradeResult(buyResult, "buy", tradingSymbol, decision.amount, buyResult.executedPrice);
-
-    if (buyResult?.success) {
+    if (buyResult?.success) {      
       this.remainingAvailableCash -= requiredMargin;
+      decision.trade_status=1000;
     }
+
+    console.log(`💰 Buy long ${decision.symbol} processed.`,buyResult,decision);
+
+    // this.logTradeResult(buyResult, "buy", tradingSymbol, decision.amount, buyResult.executedPrice);
+
+
 
     // this.recordTradingData(decision);
   }
@@ -358,7 +368,14 @@ class TradingExecutor {
       leverage: decision.leverage,
     });
 
-    this.logTradeResult(sellResult, "sell", tradingSymbol, sellResult.executedAmount || 0, sellResult.executedPrice);
+    if(sellResult?.success)
+    {
+      decision.trade_status=2000
+    }
+
+
+
+    // this.logTradeResult(sellResult, "sell", tradingSymbol, sellResult.executedAmount || 0, sellResult.executedPrice);
 
 
     // this.recordTradingData(decision, {
@@ -372,7 +389,7 @@ class TradingExecutor {
 
   private async processHoldDecision(decision: any) {
     console.log("⏸️ Processed HOLD decision...");
-    
+    decision.trade_status = -1;
     // const shouldAdjustProfit = decision.adjustProfit != null &&
     //   (decision.stopLoss != null || decision.takeProfit != null);
 
@@ -416,6 +433,7 @@ class TradingExecutor {
       console.log(`   Order ID: ${closeResult.orderId}`);
       console.log(`   Price: $${closeResult.executedPrice}`);
       console.log(`   Amount: ${closeResult.executedAmount}`);
+      decision.trade_status = -1000;
     }
   }
 
@@ -435,28 +453,28 @@ class TradingExecutor {
     }
   }
 
-  private logTradeResult(result: any, action: string, symbol: string, amount: number, price: number) {
-    if (result.success) {
-      console.log(`✅ ${action.charAt(0).toUpperCase() + action.slice(1)} executed successfully`);
-      console.log(`   Order ID: ${result.orderId}`);
-      console.log(`   Price: $${result.executedPrice}`);
-      console.log(`   Amount: ${result.executedAmount}`);
-    } else {
-      console.error(`❌ ${action.charAt(0).toUpperCase() + action.slice(1)} failed: ${result.error}`);
-      if (result.error?.includes("No open position")) {
-        console.warn(`⚠️ Position already closed or doesn't exist`);
-      }
-    }
+  // private logTradeResult(result: any, action: string, symbol: string, amount: number, price: number) {
+  //   if (result.success) {
+  //     console.log(`✅ ${action.charAt(0).toUpperCase() + action.slice(1)} executed successfully`);
+  //     console.log(`   Order ID: ${result.orderId}`);
+  //     console.log(`   Price: $${result.executedPrice}`);
+  //     console.log(`   Amount: ${result.executedAmount}`);
+  //   } else {
+  //     console.error(`❌ ${action.charAt(0).toUpperCase() + action.slice(1)} failed: ${result.error}`);
+  //     if (result.error?.includes("No open position")) {
+  //       console.warn(`⚠️ Position already closed or doesn't exist`);
+  //     }
+  //   }
 
-    logTrade({
-      action: this.riskConfig.tradingMode === "live" ? action : `dry-run-${action}`,
-      symbol,
-      amount,
-      price,
-      orderId: result.orderId,
-      reason: result.success ? "Success" : result.error,
-    });
-  }
+  //   logTrade({
+  //     action: this.riskConfig.tradingMode === "live" ? action : `dry-run-${action}`,
+  //     symbol,
+  //     amount,
+  //     price,
+  //     orderId: result.orderId,
+  //     reason: result.success ? "Success" : result.error,
+  //   });
+  // }
 
   private createTradingData(decision: any, overrides: any = {}) {
     return {
@@ -466,7 +484,9 @@ class TradingExecutor {
       takeProfit: overrides.takeProfit || decision.takeProfit || null,
       pricing: overrides.pricing || decision.buy?.pricing || decision.pricing || 0,
       amount: overrides.amount || decision.buy?.amount || decision.amount || null,
-      leverage: decision.buy?.leverage || decision.leverage || null,
+      invalidation_condition: decision.invalidation_condition || 'Not Set',
+      leverage: decision.leverage || 0,
+      trade_status: decision.trade_status || 0,
       prediction: decision.prediction ? JSON.parse(JSON.stringify(decision.prediction)) : null,
       ...overrides,
     } as any;

@@ -46,6 +46,9 @@ model Trading {
   stopLoss   Float?  // 改为 Float 以支持小数止损价格
   takeProfit Float?  // 改为 Float 以支持小数止盈价格
   
+  invalidation_condition String?
+  trade_status Int?
+
   // K线趋势预测数据（JSON格式）
   // 包含: short_term_trend, confidence, key_levels (support/resistance), analysis
   prediction Json?
