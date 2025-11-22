@@ -247,11 +247,7 @@ class AccountInfoService {
         : 0;
 
     console.log(
-      `📊Metrics-calculated - TV: $${totalAccountValue.toFixed(
-        4
-      )}, RT: ${(currentTotalReturn * 100).toFixed(2)}%, AC: $${availableCash.toFixed(4)},CPV: $${currentPositionsValue.toFixed(4)}, SR: ${sharpeRatio.toFixed(4)},CV: $${contractValue.toFixed(4)}
-      `
-    );
+      `📊Metrics-calculated - TV: $${totalAccountValue.toFixed(4)}, RT: ${(currentTotalReturn * 100).toFixed(2)}%, AC: $${availableCash.toFixed(4)},CPV: $${currentPositionsValue.toFixed(4)}, SR: ${sharpeRatio.toFixed(4)},CV: $${contractValue.toFixed(4)}`);
 
     return {
       currentPositionsValue,
@@ -279,13 +275,8 @@ class AccountInfoService {
       },
       0
     );
+    console.log(`📊 AO: TWB: $${totalCashValue.toFixed(4)} AB: $${availableCash.toFixed(4)}  UPnL: $${totalUnrealizedPnl.toFixed(4)} TR: ${(currentTotalReturn * 100).toFixed(2)}% AP: ${positions.length} PV: $${currentPositionsValue.toFixed(4)}`);
 
-    console.log(
-      [
-        ``,
-        `📊 AO: TWB: $${totalCashValue.toFixed(4)} AB: $${availableCash.toFixed(4)}  UPnL: $${totalUnrealizedPnl.toFixed(4)} TR: ${(currentTotalReturn * 100).toFixed(2)}% AP: ${positions.length} PV: $${currentPositionsValue.toFixed(4)}`,
-      ].join("\n")
-    );
 
     if (positions.length > 0) {
       console.log(`\n📋 Current Active Positions:`);

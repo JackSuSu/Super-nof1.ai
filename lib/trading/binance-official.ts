@@ -55,7 +55,7 @@ async function syncServerTime(client: UMFutures): Promise<void> {
                 fetchOptions.dispatcher = new ProxyAgent(envProxy);
                 // console.log(`🔄 Time sync attempt ${attempt}/3 via proxy: ${envProxy}`);
             } else {
-                console.log(`🔄 Time sync attempt ${attempt}/3 (direct connection)`);
+                // console.log(`🔄 Time sync attempt ${attempt}/3 (direct connection)`);
             }
 
             // 直接使用fetch调用Binance API获取服务器时间
