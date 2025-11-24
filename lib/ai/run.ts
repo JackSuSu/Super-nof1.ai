@@ -20,17 +20,17 @@ import { closePosition } from "../trading/close_position";
 
 class TradingExecutor {
   private riskConfig = getRiskConfig();
-  private supportedSymbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "DOGE/USDT"];
+  private supportedSymbols = ["BTC/USDT", "ETH/USDT", "BNB/USDT"];
   private remainingAvailableCash = 0;
   private allTradingRecords: any[] = [];
   private allChatMessages: string[] = [];
 
-  constructor(private initialCapital?: number) {}
+  constructor(private initialCapital?: number) { }
 
   async run() {
     try {
       this.logTradingMode();
-      
+
       const [marketStates, accountInfo] = await Promise.all([
         this.fetchMarketStates(),
         this.getAccountInfo()
@@ -43,7 +43,7 @@ class TradingExecutor {
 
       await this.processTradingDecisions(aiDecision, accountInfo);
       await this.saveTradingResults(aiDecision.justification, aiDecision.userPrompt);
-      
+
       console.log(`✅ Saved ${this.allTradingRecords.length} trading decision(s) to database`);
     } catch (error) {
       console.error("❌ Trading error:", error);
@@ -58,7 +58,7 @@ class TradingExecutor {
 
   private async fetchMarketStates() {
     console.log("📊 Fetching market states...");
-    
+
     const marketStates = await Promise.all(
       this.supportedSymbols.map(async (symbol) => {
         try {
@@ -73,7 +73,7 @@ class TradingExecutor {
 
     const validMarketStates = marketStates.filter(item => item !== null);
     console.log(`📊 Analyzed ${validMarketStates.length}/${this.supportedSymbols.length} symbols`);
-    
+
     return validMarketStates;
   }
 
@@ -109,8 +109,8 @@ class TradingExecutor {
   //调用AI
   private async getAIDecision(marketStates: any[], accountInfo: any) {
     console.log("🤖 Generating AI decision...");
-    
-    const chatCount:number = await prisma.chat.count();
+
+    const chatCount: number = await prisma.chat.count();
 
     const userPrompt = await generateUserPrompt({
       marketStates,
@@ -151,7 +151,7 @@ class TradingExecutor {
 
     const result = await generateObject(aiCallConfig);
     const duration = Date.now() - startTime;
-    
+
     // console.log("🕒 AI call completed:", result);
     console.log(`✅AI call completed， AI processing time: ${duration}ms, result:`, JSON.stringify(result.object));
 
@@ -159,8 +159,8 @@ class TradingExecutor {
     // Map to legacy format
     const decisions = this.mapAIDecisionsToLegacyFormat([result.object]);
 
-    console.log(`🔄 Mapped decisions to legacy format action:【${ decisions[0]?.signal}】`);
-    console.log(`🔄 Mapped decisions to legacy format justification:【${ decisions[0]?.justification}】`);
+    // console.log(`🔄 Mapped decisions to legacy format action:`);
+    console.log(`🔄 Mapped decisions to legacy format justification:【${decisions[0]?.signal}】【${decisions[0]?.justification}】`);
 
     return { decisions, justification: result?.object?.justification ?? "no reason provided", userPrompt };
   }
@@ -191,7 +191,7 @@ class TradingExecutor {
         leverage: d.leverage ?? null,
         takeProfit: d.profit_target ?? null,
         chat: d.justification || undefined,
-        prediction: JSON.stringify(d)||null,
+        prediction: JSON.stringify(d) || null,
       };
 
       // Structure for different operation types
@@ -231,7 +231,7 @@ class TradingExecutor {
       return mapped;
     });
   }
-  
+
 
 
   private async processTradingDecisions(aiDecision: any, accountInfo: any) {
@@ -266,7 +266,7 @@ class TradingExecutor {
           break;
         default:
           console.warn(`⚠️ Unknown operation: ${decision.opeartion}`);
-         
+
       }
 
       console.log(`✅ Processed ${decision.opeartion} for ${decision.symbol}`);
@@ -278,12 +278,12 @@ class TradingExecutor {
       this.recordFailedDecision(decision);
     }
 
-     
+
   }
 
   private async processBuyLongDecision(decision: any) {
     console.log("💰 Processing BUY decision...");
-    
+
     if (!decision || decision.amount == null || decision.leverage == null) {
       console.warn("⚠️ Buy: missing required fields");
       this.recordFailedDecision(decision);
@@ -332,12 +332,12 @@ class TradingExecutor {
       takeProfitPercent: decision.takeProfitPercent,
     });
 
-    if (buyResult?.success) {      
+    if (buyResult?.success) {
       this.remainingAvailableCash -= requiredMargin;
-      decision.trade_status=1000;
+      decision.trade_status = 1000;
     }
 
-    console.log(`💰 Buy long ${decision.symbol} processed.`,buyResult,decision);
+    console.log(`💰 Buy long ${decision.symbol} processed.`, buyResult, decision);
 
     // this.logTradeResult(buyResult, "buy", tradingSymbol, decision.amount, buyResult.executedPrice);
 
@@ -348,7 +348,7 @@ class TradingExecutor {
 
   private async processBuyShortDecision(decision: any) {
     console.log("💸 Processing SHORT decision...");
-    
+
     if (!decision || decision.amount == null || decision.leverage == null) {
       console.warn("⚠️ Short: missing required fields");
       this.recordFailedDecision(decision);
@@ -356,7 +356,7 @@ class TradingExecutor {
     }
 
     const tradingSymbol = `${decision.symbol}/USDT`;
-    
+
     // Get position info for logging
     const positionInfo = await this.getPositionInfo(tradingSymbol);
 
@@ -368,9 +368,8 @@ class TradingExecutor {
       leverage: decision.leverage,
     });
 
-    if(sellResult?.success)
-    {
-      decision.trade_status=2000
+    if (sellResult?.success) {
+      decision.trade_status = 2000
     }
 
 
@@ -396,7 +395,7 @@ class TradingExecutor {
     // if (shouldAdjustProfit) {
     //   console.log(`🎯 Setting SL/TP for ${decision.symbol} (Mode: ${this.riskConfig.tradingMode})...`);
     //   const tradingSymbol = `${decision.symbol}/USDT`;
-      
+
     //   const slTpResult = await setStopLossTakeProfit({
     //     symbol: tradingSymbol,
     //     stopLoss: decision.adjustProfit!.stopLoss,
@@ -412,7 +411,7 @@ class TradingExecutor {
     //   }
     // }
 
-    
+
 
     // this.recordTradingData(decision, {
     //   stopLoss: decision.adjustProfit?.stopLoss || null,
@@ -421,7 +420,7 @@ class TradingExecutor {
   }
 
   private async processCloseDecision(decision: any) {
-    console.log("🛑 Processing CLOSE decision...");   
+    console.log("🛑 Processing CLOSE decision...");
     const tradingSymbol = `${decision.symbol}/USDT`;
     const closeResult = await closePosition({
       symbol: tradingSymbol,

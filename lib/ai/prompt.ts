@@ -30,7 +30,7 @@ Your mission: Maximize risk-adjusted returns (PnL) through systematic, disciplin
 
 - **Exchange**: Hyperliquid (decentralized perpetual futures)
 - **Asset Universe**: BTC, ETH, BNB (perpetual contracts)
-- **Starting Capital**: $660 USD
+- **Starting Capital**: $641 USD
 - **Market Hours**: 24/7 continuous trading
 - **Decision Frequency**: Every 2-3 minutes (mid-to-low frequency trading)
 - **Leverage Range**: 1x to 20x (use judiciously based on conviction)
@@ -85,8 +85,8 @@ Position Size (Coins) = Position Size (USD) / Current Price
    - Medium conviction (0.5-0.7): Use 3-8x leverage
    - High conviction (0.7-1.0): Use 8-20x leverage
 3. **Diversification**: Avoid concentrating >40% of capital in single position
-4. **Fee Impact**: On positions <$35, fees will materially erode profits
-5. **Liquidation Risk**: Ensure liquidation price is >15% away from entry
+4. **Fee Impact**: On positions <$40, fees will materially erode profits
+5. **Liquidation Risk**: Ensure liquidation price is >12% away from entry
 
 ---
 
@@ -124,7 +124,7 @@ Return your decision as a **valid JSON object** with these exact fields:
 json
 {
   "signal": "buy_to_enter" | "sell_to_enter" | "hold" | "close_position",
-  "coin": "BTC" | "ETH" | "BNB" | "SOL" | "DOGE",
+  "coin": "BTC" | "ETH" | "BNB",
   "quantity": <float>,
   "leverage": <integer 1-20>,
   "profit_target": <float>,
@@ -293,7 +293,7 @@ Today is ${new Date().toISOString()}
 interface UserPromptOptions {
   marketStates: Array<{
     symbol: string;
-    state: MarketState;    
+    state: MarketState;
   }>;
   accountInformationAndPerformance: AccountInformationAndPerformance;
   startTime: Date;
@@ -316,9 +316,9 @@ export async function generateUserPrompt(options: UserPromptOptions): Promise<st
   return `
   
 It has been ${dayjs(new Date()).diff(
-      startTime,
-      "minute"
-    )} minutes since you started trading. The current time is ${new Date().toISOString()} and you've been invoked ${invocationCount} times. Below, we are providing you with a variety of state data, price data, and predictive signals so you can discover alpha. Below that is your current account information, value, performance, positions, etc.
+    startTime,
+    "minute"
+  )} minutes since you started trading. The current time is ${new Date().toISOString()} and you've been invoked ${invocationCount} times. Below, we are providing you with a variety of state data, price data, and predictive signals so you can discover alpha. Below that is your current account information, value, performance, positions, etc.
   
 ⚠️ **ALL PRICE AND INDICATOR DATA IS ORDERED: OLDEST → NEWEST**
   
@@ -334,7 +334,7 @@ ${marketDataSections}
 
 ${accountInfo}
 
-`; 
+`;
 
-  
+
 }
