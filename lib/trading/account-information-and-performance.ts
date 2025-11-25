@@ -235,7 +235,11 @@ class AccountInfoService {
 
     const totalAccountValue = accountInfo.totalWalletBalance;
     const availableCash = accountInfo.availableBalance;
+    console.log(`Total Account Value: $${totalAccountValue.toFixed(4)}`);
+    console.log(`Available Cash: $${availableCash.toFixed(4)}`);
+    console.log(`Initial Capital: $${initialCapital?.toFixed(4) ?? "Auto"}`);
     const baseCapital = initialCapital ?? totalAccountValue;
+    console.log(`Base Capital: $${baseCapital.toFixed(4)}`);
     const currentTotalReturn =
       baseCapital > 0 ? (totalAccountValue - baseCapital) / baseCapital : 0;
     const totalUnrealizedPnl = accountInfo.totalUnrealizedProfit;
