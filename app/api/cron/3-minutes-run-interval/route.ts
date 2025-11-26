@@ -47,7 +47,7 @@ export const GET = async (request: NextRequest) => {
 
   try {
     // Run trading bot (auto-detects initial capital from current balance)
-    await run(641);
+    await run();
     console.log("✅ [Cron Job] 3-minutes trading run executed successfully.");
     return new Response("Trading run executed successfully");
   } catch (error) {

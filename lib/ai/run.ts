@@ -521,6 +521,8 @@ class TradingExecutor {
  * Interval trading using cron job
  */
 export async function run(initialCapital?: number) {
-  const executor = new TradingExecutor(initialCapital);
+  // const executor = new TradingExecutor(initialCapital);
+  const envInitialCapital = process.env.INITIAL_CAPITAL ? parseFloat(process.env.INITIAL_CAPITAL) : undefined;
+  const executor = new TradingExecutor(initialCapital ?? envInitialCapital);
   await executor.run();
 }
