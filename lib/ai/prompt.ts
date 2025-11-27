@@ -84,9 +84,9 @@ Position Size (Coins) = Position Size (USD) / Current Price
    - Low conviction (0.3-0.5): Use 1-3x leverage
    - Medium conviction (0.5-0.7): Use 3-8x leverage
    - High conviction (0.7-1.0): Use 8-20x leverage
-3. **Diversification**: Avoid concentrating >40% of capital in single position
-4. **Fee Impact**: On positions <$40, fees will materially erode profits
-5. **Liquidation Risk**: Ensure liquidation price is >12% away from entry
+3. **Diversification**: Avoid concentrating >53% of capital in single position
+4. **Fee Impact**: On positions <$80, fees will materially erode profits
+5. **Liquidation Risk**: Ensure liquidation price is >10% away from entry
 
 ---
 
@@ -99,7 +99,7 @@ For EVERY trade decision, you MUST specify:
    - Based on technical resistance levels, Fibonacci extensions, or volatility bands
 
 2. **stop_loss** (float): Exact price level to cut losses
-   - Should limit loss to 2-5% of account value per trade
+   - Should limit loss to 1-3% of account value per trade
    - Placed beyond recent support/resistance to avoid premature stops
 
 3. **invalidation_condition** (string): Specific market signal that voids your thesis
